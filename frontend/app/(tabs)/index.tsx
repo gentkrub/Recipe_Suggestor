@@ -6,10 +6,9 @@ import {
   View,
   Text,
   Image,
-  Dimensions,
   TouchableOpacity,
 } from "react-native";
-import { Searchbar } from "react-native-paper";
+import { Searchbar, Button } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
@@ -17,15 +16,17 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [allMeals, setAllMeals] = useState<Meal[]>([]);
   const [filteredMeals, setFilteredMeals] = useState<Meal[]>([]);
+  const [activeCategory, setActiveCategory] = useState("All");
+
   const router = useRouter();
 
   interface Meal {
     idMeal: string;
     strMeal: string;
     strMealThumb: string;
+    strArea?: string;
   }
 
-  // Fetch all meals from A–Z
   useEffect(() => {
     const fetchAllMeals = async () => {
       try {
@@ -49,7 +50,6 @@ export default function HomeScreen() {
     fetchAllMeals();
   }, []);
 
-  // Search filtering
   useEffect(() => {
     if (searchQuery.trim() === "") {
       setFilteredMeals(allMeals);
@@ -62,6 +62,40 @@ export default function HomeScreen() {
     }
   }, [searchQuery, allMeals]);
 
+  const filterByCategory = async (category: string) => {
+    setActiveCategory(category);
+
+    try {
+      let results: Meal[] = [];
+
+      if (category === "Healthy") {
+        const vegan = await axios.get(
+          "https://www.themealdb.com/api/json/v1/1/filter.php?c=Vegan"
+        );
+        const vegetarian = await axios.get(
+          "https://www.themealdb.com/api/json/v1/1/filter.php?c=Vegetarian"
+        );
+
+        if (vegan.data.meals) results.push(...vegan.data.meals);
+        if (vegetarian.data.meals) results.push(...vegetarian.data.meals);
+      } else if (category === "Western") {
+        results = allMeals.filter(
+          (meal) =>
+            meal.strArea &&
+            ["American", "British", "Canadian", "French", "Italian"].includes(
+              meal.strArea
+            )
+        );
+      } else {
+        results = allMeals;
+      }
+
+      setFilteredMeals(results);
+    } catch (error) {
+      console.error("❌ Error filtering meals:", error);
+    }
+  };
+
   return (
     <SafeAreaView>
       <Searchbar
@@ -70,6 +104,32 @@ export default function HomeScreen() {
         onChangeText={setSearchQuery}
         style={{ margin: 10, borderRadius: 8 }}
       />
+
+      <View
+        style={{ flexDirection: "row", justifyContent: "center", margin: 10 }}
+      >
+        <Button
+          mode={activeCategory === "All" ? "contained" : "outlined"}
+          onPress={() => filterByCategory("All")}
+          style={{ marginRight: 5 }}
+        >
+          All
+        </Button>
+        <Button
+          mode={activeCategory === "Western" ? "contained" : "outlined"}
+          onPress={() => filterByCategory("Western")}
+          style={{ marginRight: 5 }}
+        >
+          Western
+        </Button>
+        <Button
+          mode={activeCategory === "Healthy" ? "contained" : "outlined"}
+          onPress={() => filterByCategory("Healthy")}
+        >
+          Healthy
+        </Button>
+      </View>
+
       <FlatList
         data={filteredMeals}
         keyExtractor={(item) => item.idMeal}
@@ -79,10 +139,7 @@ export default function HomeScreen() {
               <View style={styles.textWrapper}>
                 <Text style={styles.text}>{item.strMeal}</Text>
               </View>
-              <Image
-                source={{ uri: item.strMealThumb }}
-                style={styles.image}
-              />
+              <Image source={{ uri: item.strMealThumb }} style={styles.image} />
             </View>
           </TouchableOpacity>
         )}
