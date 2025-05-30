@@ -1,91 +1,82 @@
 import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-} from "react-native";
-import axios from "axios";
+import { View, Text, Image, ScrollView, StyleSheet } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Ionicons } from "@expo/vector-icons";
 
 export default function MealDetail() {
   const { mealId } = useLocalSearchParams();
-  const [meal, setMeal] = useState(null);
-  const [isFavorite, setIsFavorite] = useState(false);
+  const [meal, setMeal] = useState<any>(null);
+  const [userIngredients, setUserIngredients] = useState<string[]>([]);
+  const [matchInfo, setMatchInfo] = useState<{
+    have: string[];
+    missing: string[];
+  }>({
+    have: [],
+    missing: [],
+  });
 
   useEffect(() => {
-    const fetchMealDetail = async () => {
-      try {
-        const res = await axios.get(
-          `https://www.themealdb.com/api/json/v1/1/lookup.php?i=${mealId}`
-        );
-        const mealData = res.data.meals?.[0];
-        setMeal(mealData);
-
-        const stored = await AsyncStorage.getItem("favorites");
-        const favorites = stored ? JSON.parse(stored) : [];
-        const exists = favorites.some(
-          (item) => item.idMeal === mealData?.idMeal
-        );
-        setIsFavorite(exists);
-      } catch (err) {
-        console.error("❌ Failed to fetch meal details:", err);
-      }
+    const fetchMeal = async () => {
+      const res = await fetch(
+        `https://www.themealdb.com/api/json/v1/1/lookup.php?i=${mealId}`
+      );
+      const data = await res.json();
+      setMeal(data.meals[0]);
     };
 
-    if (mealId) fetchMealDetail();
+    const fetchUserIngredients = async () => {
+      const stored = await AsyncStorage.getItem("latest_ingredients");
+      const parsed = stored ? JSON.parse(stored) : [];
+      const names = parsed.map((item: { name: string }) =>
+        item.name.toLowerCase()
+      );
+      setUserIngredients(names);
+    };
+
+    fetchMeal();
+    fetchUserIngredients();
   }, [mealId]);
 
-  const toggleFavorite = async () => {
-    try {
-      const stored = await AsyncStorage.getItem("favorites");
-      let favorites = stored ? JSON.parse(stored) : [];
+  useEffect(() => {
+    if (!meal || userIngredients.length === 0) return;
 
-      if (isFavorite) {
-        favorites = favorites.filter((item) => item.idMeal !== meal.idMeal);
-        Alert.alert("Removed", `${meal.strMeal} removed from favorites.`);
-      } else {
-        favorites.push(meal);
-        Alert.alert("Added", `${meal.strMeal} added to favorites.`);
+    const actualIngredients: string[] = [];
+    for (let i = 1; i <= 20; i++) {
+      const ing = meal[`strIngredient${i}`];
+      if (ing && ing.trim() !== "") {
+        actualIngredients.push(ing.toLowerCase());
       }
-
-      await AsyncStorage.setItem("favorites", JSON.stringify(favorites));
-      setIsFavorite(!isFavorite);
-    } catch (err) {
-      console.error("❌ Error updating favorites:", err);
-      Alert.alert("Error", "Failed to update favorites.");
     }
-  };
 
-  if (!meal) {
-    return (
-      <View style={styles.center}>
-        <Text>Loading...</Text>
-      </View>
+    const have = actualIngredients.filter((ing) =>
+      userIngredients.includes(ing)
     );
-  }
+    const missing = actualIngredients.filter(
+      (ing) => !userIngredients.includes(ing)
+    );
+
+    setMatchInfo({ have, missing });
+  }, [meal, userIngredients]);
+
+  if (!meal) return <Text>Loading...</Text>;
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{meal.strMeal}</Text>
-        <TouchableOpacity onPress={toggleFavorite}>
-          <Ionicons
-            name={isFavorite ? "heart" : "heart-outline"}
-            size={28}
-            color="#ff6347"
-          />
-        </TouchableOpacity>
-      </View>
-
+    <ScrollView style={styles.container}>
       <Image source={{ uri: meal.strMealThumb }} style={styles.image} />
+      <Text style={styles.title}>{meal.strMeal}</Text>
 
-      <Text style={styles.sectionTitle}>Instructions</Text>
+      <Text style={styles.subheading}>Matched Ingredients:</Text>
+      <Text>
+        ✅ You have {matchInfo.have.length}/
+        {matchInfo.have.length + matchInfo.missing.length} ingredients
+      </Text>
+      {matchInfo.missing.length > 0 && (
+        <Text style={{ color: "red", marginTop: 5 }}>
+          ❌ Missing: {matchInfo.missing.join(", ")}
+        </Text>
+      )}
+
+      <Text style={styles.subheading}>Instructions:</Text>
       <Text style={styles.instructions}>{meal.strInstructions}</Text>
     </ScrollView>
   );
@@ -93,40 +84,27 @@ export default function MealDetail() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    paddingBottom: 60,
+    padding: 15,
+    backgroundColor: "#fff",
   },
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
+  image: {
+    width: "100%",
+    height: 200,
+    borderRadius: 12,
+    marginBottom: 15,
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    flex: 1,
-    marginRight: 10,
   },
-  image: {
-    width: "100%",
-    height: 250,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  sectionTitle: {
+  subheading: {
+    marginTop: 15,
     fontSize: 18,
     fontWeight: "600",
-    marginBottom: 6,
   },
   instructions: {
-    fontSize: 15,
+    marginTop: 10,
+    fontSize: 16,
     lineHeight: 22,
-    textAlign: "justify",
   },
 });

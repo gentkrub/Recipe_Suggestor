@@ -2,50 +2,51 @@ import { Tabs } from "expo-router";
 import React from "react";
 import { Platform } from "react-native";
 
-import { HapticTab } from "@/components/HapticTab";
-import { IconSymbol } from "@/components/ui/IconSymbol";
-import TabBarBackground from "@/components/ui/TabBarBackground";
-import { Colors } from "@/constants/Colors";
-import { useColorScheme } from "@/hooks/useColorScheme";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        //tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
         headerShown: false,
-        //tabBarButton: HapticTab,
-        //tabBarBackground: TabBarBackground,
-        //tabBarStyle: Platform.select({
-        //ios: {
-        // Use a transparent background on iOS to show the blur effect
-        //position: "absolute",
-        //},
-        //default: {},
-        //}),
       }}
     >
+      {/* Explore tab (was index) */}
       <Tabs.Screen
         name="index"
         options={{
-          title: "Menu",
-          tabBarIcon: ({ color, focused, size }) => (
+          title: "Explore",
+          tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? "menu" : "menu-outline"}
+              name={focused ? "search" : "search-outline"}
               color={color}
-              size={30}
+              size={28}
             />
           ),
         }}
       />
+
+      {/* Menu tab (new file: menu.tsx) */}
+      <Tabs.Screen
+        name="menu"
+        options={{
+          title: "Menu",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "restaurant" : "restaurant-outline"}
+              color={color}
+              size={28}
+            />
+          ),
+        }}
+      />
+
+      {/* Ingredients tab */}
       <Tabs.Screen
         name="ingredients"
         options={{
           title: "Ingredients",
-          tabBarIcon: ({ focused, color, size }) => (
+          tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "fast-food" : "fast-food-outline"}
               color={color}
@@ -54,11 +55,13 @@ export default function TabLayout() {
           ),
         }}
       />
+
+      {/* Profile tab */}
       <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
-          tabBarIcon: ({ focused, color, size }) => (
+          tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "person-circle" : "person-circle-outline"}
               color={color}
