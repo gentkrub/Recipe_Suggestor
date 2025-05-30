@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   FlatList,
   StyleSheet,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -19,6 +20,7 @@ type MealDBIngredient = {
 
 type Ingredient = {
   name: string;
+  image?: string;
 };
 
 export default function IngredientsScreen() {
@@ -71,11 +73,11 @@ export default function IngredientsScreen() {
     const name = inputText.trim();
     if (!name) return;
 
-    const isValid = allIngredients.some(
+    const match = allIngredients.find(
       (item) => item.strIngredient.toLowerCase() === name.toLowerCase()
     );
 
-    if (!isValid) {
+    if (!match) {
       alert(
         "❌ This ingredient is not recognized. Please select from the suggestion list."
       );
@@ -87,7 +89,8 @@ export default function IngredientsScreen() {
     );
 
     if (!exists) {
-      setIngredients((prev) => [...prev, { name }]);
+      const image = `https://www.themealdb.com/images/ingredients/${name}.png`;
+      setIngredients((prev) => [...prev, { name, image }]);
     }
 
     setInputText("");
@@ -121,12 +124,15 @@ export default function IngredientsScreen() {
 
   const renderItem = ({ item }: { item: Ingredient }) => (
     <View style={styles.ingredientItem}>
-      <Text style={styles.ingredientText}>{item.name}</Text>
+      <View style={styles.imageTextWrapper}>
+        {item.image && (
+          <Image source={{ uri: item.image }} style={styles.ingredientImage} />
+        )}
+        <Text style={styles.ingredientText}>{item.name}</Text>
+      </View>
       <TouchableOpacity
         onPress={() =>
-          setIngredients((prev) =>
-            prev.filter((ing) => ing.name !== item.name)
-          )
+          setIngredients((prev) => prev.filter((ing) => ing.name !== item.name))
         }
         style={styles.qtyBtn}
       >
@@ -164,11 +170,12 @@ export default function IngredientsScreen() {
                   <TouchableOpacity
                     onPress={() => {
                       const name = item.strIngredient;
+                      const image = `https://www.themealdb.com/images/ingredients/${name}.png`;
                       const exists = ingredients.find(
                         (i) => i.name.toLowerCase() === name.toLowerCase()
                       );
                       if (!exists) {
-                        setIngredients((prev) => [...prev, { name }]);
+                        setIngredients((prev) => [...prev, { name, image }]);
                       }
                       setInputText("");
                       setSuggestions([]);
@@ -248,6 +255,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+  },
+  imageTextWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  ingredientImage: {
+    width: 40,
+    height: 40,
+    marginRight: 10,
+    borderRadius: 8,
   },
   ingredientText: {
     fontSize: 16,
