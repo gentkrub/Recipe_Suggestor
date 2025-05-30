@@ -20,7 +20,7 @@ type MealDBIngredient = {
 
 type Ingredient = {
   name: string;
-  image?: string;
+  image: string;
 };
 
 export default function IngredientsScreen() {
@@ -73,11 +73,11 @@ export default function IngredientsScreen() {
     const name = inputText.trim();
     if (!name) return;
 
-    const match = allIngredients.find(
+    const found = allIngredients.find(
       (item) => item.strIngredient.toLowerCase() === name.toLowerCase()
     );
 
-    if (!match) {
+    if (!found) {
       alert(
         "❌ This ingredient is not recognized. Please select from the suggestion list."
       );
@@ -89,8 +89,13 @@ export default function IngredientsScreen() {
     );
 
     if (!exists) {
-      const image = `https://www.themealdb.com/images/ingredients/${name}.png`;
-      setIngredients((prev) => [...prev, { name, image }]);
+      setIngredients((prev) => [
+        ...prev,
+        {
+          name: found.strIngredient,
+          image: `https://www.themealdb.com/images/ingredients/${found.strIngredient}.png`,
+        },
+      ]);
     }
 
     setInputText("");
@@ -124,10 +129,8 @@ export default function IngredientsScreen() {
 
   const renderItem = ({ item }: { item: Ingredient }) => (
     <View style={styles.ingredientItem}>
-      <View style={styles.imageTextWrapper}>
-        {item.image && (
-          <Image source={{ uri: item.image }} style={styles.ingredientImage} />
-        )}
+      <View style={styles.ingredientRow}>
+        <Image source={{ uri: item.image }} style={styles.ingredientImage} />
         <Text style={styles.ingredientText}>{item.name}</Text>
       </View>
       <TouchableOpacity
@@ -170,19 +173,32 @@ export default function IngredientsScreen() {
                   <TouchableOpacity
                     onPress={() => {
                       const name = item.strIngredient;
-                      const image = `https://www.themealdb.com/images/ingredients/${name}.png`;
                       const exists = ingredients.find(
                         (i) => i.name.toLowerCase() === name.toLowerCase()
                       );
                       if (!exists) {
-                        setIngredients((prev) => [...prev, { name, image }]);
+                        setIngredients((prev) => [
+                          ...prev,
+                          {
+                            name,
+                            image: `https://www.themealdb.com/images/ingredients/${name}.png`,
+                          },
+                        ]);
                       }
                       setInputText("");
                       setSuggestions([]);
                     }}
                     style={styles.suggestionItem}
                   >
-                    <Text>{item.strIngredient}</Text>
+                    <View style={styles.suggestionRow}>
+                      <Image
+                        source={{
+                          uri: `https://www.themealdb.com/images/ingredients/${item.strIngredient}.png`,
+                        }}
+                        style={styles.suggestionImage}
+                      />
+                      <Text>{item.strIngredient}</Text>
+                    </View>
                   </TouchableOpacity>
                 )}
                 keyboardShouldPersistTaps="handled"
@@ -242,6 +258,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#ccc",
   },
+  suggestionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  suggestionImage: {
+    width: 30,
+    height: 30,
+    borderRadius: 5,
+  },
   heading: {
     fontSize: 20,
     fontWeight: "bold",
@@ -256,14 +282,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  imageTextWrapper: {
+  ingredientRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 10,
   },
   ingredientImage: {
     width: 40,
     height: 40,
-    marginRight: 10,
     borderRadius: 8,
   },
   ingredientText: {
