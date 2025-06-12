@@ -60,21 +60,43 @@ export default function MealDetail() {
 
   if (!meal) return <Text>Loading...</Text>;
 
+  const renderIngredients = () => {
+    const items = [];
+    for (let i = 1; i <= 20; i++) {
+      const name = meal[`strIngredient${i}`];
+      const measure = meal[`strMeasure${i}`];
+      if (name && name.trim() !== "") {
+        const isMatched = userIngredients.includes(name.toLowerCase());
+        items.push(
+          <Text
+            key={i}
+            style={{
+              color: isMatched ? "green" : "red",
+              fontSize: 16,
+              marginBottom: 2,
+            }}
+          >
+            {isMatched ? "✅" : "❌"} {name} - {measure}
+          </Text>
+        );
+      }
+    }
+    return items;
+  };
+
   return (
     <ScrollView style={styles.container}>
       <Image source={{ uri: meal.strMealThumb }} style={styles.image} />
       <Text style={styles.title}>{meal.strMeal}</Text>
 
-      <Text style={styles.subheading}>Matched Ingredients:</Text>
+      <Text style={styles.subheading}>Your Ingredient Match</Text>
       <Text>
         ✅ You have {matchInfo.have.length}/
         {matchInfo.have.length + matchInfo.missing.length} ingredients
       </Text>
-      {matchInfo.missing.length > 0 && (
-        <Text style={{ color: "red", marginTop: 5 }}>
-          ❌ Missing: {matchInfo.missing.join(", ")}
-        </Text>
-      )}
+
+      <Text style={styles.subheading}>Ingredients:</Text>
+      <View>{renderIngredients()}</View>
 
       <Text style={styles.subheading}>Instructions:</Text>
       <Text style={styles.instructions}>{meal.strInstructions}</Text>

@@ -11,12 +11,14 @@ import {
 import { Searchbar, Button } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [allMeals, setAllMeals] = useState<Meal[]>([]);
-  const [filteredMeals, setFilteredMeals] = useState<Meal[]>([]);
+  const [filteredMeals, setFilteredMeals] = useState<MealWithMissing[]>([]);
   const [activeCategory, setActiveCategory] = useState("All");
+  const [userIngredients, setUserIngredients] = useState<string[]>([]);
 
   const router = useRouter();
 
@@ -25,6 +27,11 @@ export default function HomeScreen() {
     strMeal: string;
     strMealThumb: string;
     strArea?: string;
+    [key: string]: any;
+  }
+
+  interface MealWithMissing extends Meal {
+    missingCount: number;
   }
 
   useEffect(() => {
@@ -41,45 +48,39 @@ export default function HomeScreen() {
           }
         }
         setAllMeals(results);
-        setFilteredMeals(results);
       } catch (error) {
         console.error("Error fetching meals:", error);
       }
     };
 
+    const fetchUserIngredients = async () => {
+      const stored = await AsyncStorage.getItem("latest_ingredients");
+      const parsed = stored ? JSON.parse(stored) : [];
+      const names = parsed.map((item: { name: string }) =>
+        item.name.toLowerCase()
+      );
+      setUserIngredients(names);
+    };
+
     fetchAllMeals();
+    fetchUserIngredients();
   }, []);
 
   useEffect(() => {
-    if (searchQuery.trim() === "") {
-      setFilteredMeals(allMeals);
-    } else {
-      const query = searchQuery.trim().toLowerCase();
-      const matches = allMeals.filter((meal) =>
-        meal.strMeal.toLowerCase().startsWith(query)
-      );
-      setFilteredMeals(matches);
-    }
-  }, [searchQuery, allMeals]);
+    const applyFilterAndMatching = async () => {
+      let meals: Meal[] = [];
 
-  const filterByCategory = async (category: string) => {
-    setActiveCategory(category);
-
-    try {
-      let results: Meal[] = [];
-
-      if (category === "Healthy") {
+      if (activeCategory === "Healthy") {
         const vegan = await axios.get(
           "https://www.themealdb.com/api/json/v1/1/filter.php?c=Vegan"
         );
         const vegetarian = await axios.get(
           "https://www.themealdb.com/api/json/v1/1/filter.php?c=Vegetarian"
         );
-
-        if (vegan.data.meals) results.push(...vegan.data.meals);
-        if (vegetarian.data.meals) results.push(...vegetarian.data.meals);
-      } else if (category === "Western") {
-        results = allMeals.filter(
+        if (vegan.data.meals) meals.push(...vegan.data.meals);
+        if (vegetarian.data.meals) meals.push(...vegetarian.data.meals);
+      } else if (activeCategory === "Western") {
+        meals = allMeals.filter(
           (meal) =>
             meal.strArea &&
             ["American", "British", "Canadian", "French", "Italian"].includes(
@@ -87,14 +88,45 @@ export default function HomeScreen() {
             )
         );
       } else {
-        results = allMeals;
+        meals = allMeals;
       }
 
-      setFilteredMeals(results);
-    } catch (error) {
-      console.error("❌ Error filtering meals:", error);
+      const mealsWithMissing = meals.map((meal) => {
+        const ingredients: string[] = [];
+        for (let i = 1; i <= 20; i++) {
+          const ing = meal[`strIngredient${i}`];
+          if (ing && ing.trim() !== "") {
+            ingredients.push(ing.toLowerCase());
+          }
+        }
+        const missingCount = ingredients.filter(
+          (ing) => !userIngredients.includes(ing)
+        ).length;
+
+        return { ...meal, missingCount };
+      });
+
+      const sortedMeals = mealsWithMissing.sort(
+        (a, b) => a.missingCount - b.missingCount
+      );
+
+      setFilteredMeals(sortedMeals);
+    };
+
+    applyFilterAndMatching();
+  }, [allMeals, activeCategory, userIngredients]);
+
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setFilteredMeals((prev) => [...prev]);
+    } else {
+      const query = searchQuery.trim().toLowerCase();
+      const matches = filteredMeals.filter((meal) =>
+        meal.strMeal.toLowerCase().startsWith(query)
+      );
+      setFilteredMeals(matches);
     }
-  };
+  }, [searchQuery]);
 
   return (
     <SafeAreaView>
@@ -110,21 +142,21 @@ export default function HomeScreen() {
       >
         <Button
           mode={activeCategory === "All" ? "contained" : "outlined"}
-          onPress={() => filterByCategory("All")}
+          onPress={() => setActiveCategory("All")}
           style={{ marginRight: 5 }}
         >
           All
         </Button>
         <Button
           mode={activeCategory === "Western" ? "contained" : "outlined"}
-          onPress={() => filterByCategory("Western")}
+          onPress={() => setActiveCategory("Western")}
           style={{ marginRight: 5 }}
         >
           Western
         </Button>
         <Button
           mode={activeCategory === "Healthy" ? "contained" : "outlined"}
-          onPress={() => filterByCategory("Healthy")}
+          onPress={() => setActiveCategory("Healthy")}
         >
           Healthy
         </Button>
@@ -138,6 +170,9 @@ export default function HomeScreen() {
             <View style={styles.item}>
               <View style={styles.textWrapper}>
                 <Text style={styles.text}>{item.strMeal}</Text>
+                <Text style={{ color: "gray" }}>
+                  You Are Missing {item.missingCount} ingredients
+                </Text>
               </View>
               <Image source={{ uri: item.strMealThumb }} style={styles.image} />
             </View>
