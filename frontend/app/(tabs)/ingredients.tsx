@@ -40,12 +40,18 @@ export default function IngredientsScreen() {
 
     const fetchLatestIngredients = async () => {
       try {
-        const res = await fetch("http://localhost:3000/api/ingredients/latest");
+        const res = await fetch(
+          "https://5b44-2001-44c8-6700-e7d2-203a-e8f3-1ed8-4e6d.ngrok-free.app/api/ingredients/latest"
+        );
         const data = await res.json();
 
         if (data.ingredients && data.ingredients.length > 0) {
-          setIngredients(data.ingredients);
-          console.log("🟢 Restored ingredients:", data.ingredients);
+          const restored = data.ingredients.map((item: any) => ({
+            name: item.name,
+            image: `https://www.themealdb.com/images/ingredients/${item.name}.png`,
+          }));
+          setIngredients(restored);
+          console.log("🟢 Restored ingredients:", restored);
         }
       } catch (error) {
         console.error("❌ Failed to load latest ingredients:", error);
@@ -103,19 +109,22 @@ export default function IngredientsScreen() {
   };
 
   const submitIngredients = async () => {
-    const now = new Date().toISOString().slice(0, 19).replace("T", " "); // MySQL format
+    const now = new Date().toISOString().slice(0, 19).replace("T", " ");
 
     try {
       console.log("🔼 Sending ingredients:", ingredients);
 
-      const res = await fetch("http://localhost:3000/api/ingredient", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          submitted_at: now,
-          ingredients: ingredients,
-        }),
-      });
+      const res = await fetch(
+        "https://5b44-2001-44c8-6700-e7d2-203a-e8f3-1ed8-4e6d.ngrok-free.app/api/ingredient",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            submitted_at: now,
+            ingredients: ingredients,
+          }),
+        }
+      );
 
       const data = await res.json();
       console.log("✅ Server response:", data);
