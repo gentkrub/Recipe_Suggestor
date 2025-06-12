@@ -11,33 +11,19 @@ import {
 import { Searchbar, Button } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export default function HomeScreen() {
+export default function ExploreScreen() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [allMeals, setAllMeals] = useState<Meal[]>([]);
-  const [filteredMeals, setFilteredMeals] = useState<MealWithMissing[]>([]);
+  const [allMeals, setAllMeals] = useState<any[]>([]);
+  const [filteredMeals, setFilteredMeals] = useState<any[]>([]);
   const [activeCategory, setActiveCategory] = useState("All");
-  const [userIngredients, setUserIngredients] = useState<string[]>([]);
 
   const router = useRouter();
-
-  interface Meal {
-    idMeal: string;
-    strMeal: string;
-    strMealThumb: string;
-    strArea?: string;
-    [key: string]: any;
-  }
-
-  interface MealWithMissing extends Meal {
-    missingCount: number;
-  }
 
   useEffect(() => {
     const fetchAllMeals = async () => {
       try {
-        const results: Meal[] = [];
+        const results: any[] = [];
         for (let c = 97; c <= 122; c++) {
           const letter = String.fromCharCode(c);
           const response = await axios.get(
@@ -48,90 +34,65 @@ export default function HomeScreen() {
           }
         }
         setAllMeals(results);
+        setFilteredMeals(results);
       } catch (error) {
-        console.error("Error fetching meals:", error);
+        console.error("❌ Error fetching meals:", error);
       }
     };
 
-    const fetchUserIngredients = async () => {
-      const stored = await AsyncStorage.getItem("latest_ingredients");
-      const parsed = stored ? JSON.parse(stored) : [];
-      const names = parsed.map((item: { name: string }) =>
-        item.name.toLowerCase()
-      );
-      setUserIngredients(names);
-    };
-
     fetchAllMeals();
-    fetchUserIngredients();
   }, []);
 
   useEffect(() => {
-    const applyFilterAndMatching = async () => {
-      let meals: Meal[] = [];
+    if (searchQuery.trim() === "") {
+      setFilteredMeals(allMeals);
+    } else {
+      const query = searchQuery.trim().toLowerCase();
+      setFilteredMeals(
+        allMeals.filter((meal) => meal.strMeal.toLowerCase().startsWith(query))
+      );
+    }
+  }, [searchQuery, allMeals]);
 
-      if (activeCategory === "Healthy") {
+  const filterByCategory = async (category: string) => {
+    setActiveCategory(category);
+
+    try {
+      let results = [];
+
+      if (category === "Healthy") {
         const vegan = await axios.get(
           "https://www.themealdb.com/api/json/v1/1/filter.php?c=Vegan"
         );
         const vegetarian = await axios.get(
           "https://www.themealdb.com/api/json/v1/1/filter.php?c=Vegetarian"
         );
-        if (vegan.data.meals) meals.push(...vegan.data.meals);
-        if (vegetarian.data.meals) meals.push(...vegetarian.data.meals);
-      } else if (activeCategory === "Western") {
-        meals = allMeals.filter(
-          (meal) =>
-            meal.strArea &&
-            ["American", "British", "Canadian", "French", "Italian"].includes(
-              meal.strArea
-            )
+        const ids = [
+          ...(vegan.data.meals || []),
+          ...(vegetarian.data.meals || []),
+        ].map((m: any) => m.idMeal);
+
+        results = allMeals.filter((m) => ids.includes(m.idMeal));
+      } else if (category === "Western") {
+        results = allMeals.filter((m) =>
+          ["American", "British", "Canadian", "French", "Italian"].includes(
+            m.strArea
+          )
         );
       } else {
-        meals = allMeals;
+        results = allMeals;
       }
 
-      const mealsWithMissing = meals.map((meal) => {
-        const ingredients: string[] = [];
-        for (let i = 1; i <= 20; i++) {
-          const ing = meal[`strIngredient${i}`];
-          if (ing && ing.trim() !== "") {
-            ingredients.push(ing.toLowerCase());
-          }
-        }
-        const missingCount = ingredients.filter(
-          (ing) => !userIngredients.includes(ing)
-        ).length;
-
-        return { ...meal, missingCount };
-      });
-
-      const sortedMeals = mealsWithMissing.sort(
-        (a, b) => a.missingCount - b.missingCount
-      );
-
-      setFilteredMeals(sortedMeals);
-    };
-
-    applyFilterAndMatching();
-  }, [allMeals, activeCategory, userIngredients]);
-
-  useEffect(() => {
-    if (searchQuery.trim() === "") {
-      setFilteredMeals((prev) => [...prev]);
-    } else {
-      const query = searchQuery.trim().toLowerCase();
-      const matches = filteredMeals.filter((meal) =>
-        meal.strMeal.toLowerCase().startsWith(query)
-      );
-      setFilteredMeals(matches);
+      setFilteredMeals(results);
+    } catch (err) {
+      console.error("❌ Category filter error:", err);
     }
-  }, [searchQuery]);
+  };
 
   return (
     <SafeAreaView>
       <Searchbar
-        placeholder="Search for a menu..."
+        placeholder="Search for a meal..."
         value={searchQuery}
         onChangeText={setSearchQuery}
         style={{ margin: 10, borderRadius: 8 }}
@@ -140,26 +101,16 @@ export default function HomeScreen() {
       <View
         style={{ flexDirection: "row", justifyContent: "center", margin: 10 }}
       >
-        <Button
-          mode={activeCategory === "All" ? "contained" : "outlined"}
-          onPress={() => setActiveCategory("All")}
-          style={{ marginRight: 5 }}
-        >
-          All
-        </Button>
-        <Button
-          mode={activeCategory === "Western" ? "contained" : "outlined"}
-          onPress={() => setActiveCategory("Western")}
-          style={{ marginRight: 5 }}
-        >
-          Western
-        </Button>
-        <Button
-          mode={activeCategory === "Healthy" ? "contained" : "outlined"}
-          onPress={() => setActiveCategory("Healthy")}
-        >
-          Healthy
-        </Button>
+        {["All", "Western", "Healthy"].map((cat) => (
+          <Button
+            key={cat}
+            mode={activeCategory === cat ? "contained" : "outlined"}
+            onPress={() => filterByCategory(cat)}
+            style={{ marginRight: 5 }}
+          >
+            {cat}
+          </Button>
+        ))}
       </View>
 
       <FlatList
@@ -170,9 +121,6 @@ export default function HomeScreen() {
             <View style={styles.item}>
               <View style={styles.textWrapper}>
                 <Text style={styles.text}>{item.strMeal}</Text>
-                <Text style={{ color: "gray" }}>
-                  You Are Missing {item.missingCount} ingredients
-                </Text>
               </View>
               <Image source={{ uri: item.strMealThumb }} style={styles.image} />
             </View>
