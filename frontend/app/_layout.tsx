@@ -9,9 +9,8 @@ export default function RootLayout() {
       <AuthProvider>
         <Stack
           screenOptions={{
-            headerTitle: "",             // <- empty title
+            headerShown: false,
             headerShadowVisible: false, // <- no shadow
-            headerBackTitleVisible: false, // <- hides "Back" label on iOS
           }}
         />
       </AuthProvider>

@@ -12,6 +12,7 @@ import { Searchbar, Button } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { distance } from "fastest-levenshtein";
 
 export default function MenuScreen() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -62,14 +63,23 @@ export default function MenuScreen() {
     loadIngredients();
   }, []);
 
-  useEffect(() => {
-    if (allMeals.length === 0 || userIngredients.length === 0) return;
+  const fuzzyIncludes = (ing: string, list: string[]) => {
+    return list.some(
+      (i) => distance(i.toLowerCase(), ing.toLowerCase()) <= 2
+    );
+  };
 
+  const getMissingCount = (meal: any) => {
+    if (!meal.ingredients) return 0;
+    return meal.ingredients.filter(
+      (ing: string) => !fuzzyIncludes(ing, userIngredients)
+    ).length;
+  };
+
+  useEffect(() => {
     const matchedMeals = allMeals
       .map((meal) => {
-        const missingCount = meal.ingredients.filter(
-          (ing: string) => !userIngredients.includes(ing)
-        ).length;
+        const missingCount = getMissingCount(meal);
         return { ...meal, missingCount };
       })
       .filter((meal) => meal.missingCount < meal.ingredients.length)
@@ -89,9 +99,46 @@ export default function MenuScreen() {
     }
   }, [searchQuery]);
 
-  const getMissingCount = (meal: any) => {
-    if (meal.missingCount === 0) return null;
-    return meal.missingCount;
+  const filterByCategory = async (category: string) => {
+    setActiveCategory(category);
+    try {
+      let results = [];
+
+      if (category === "Healthy") {
+        const vegan = await axios.get(
+          "https://www.themealdb.com/api/json/v1/1/filter.php?c=Vegan"
+        );
+        const vegetarian = await axios.get(
+          "https://www.themealdb.com/api/json/v1/1/filter.php?c=Vegetarian"
+        );
+        const ids = [
+          ...(vegan.data.meals || []),
+          ...(vegetarian.data.meals || []),
+        ].map((m: any) => m.idMeal);
+
+        results = allMeals.filter((m) => ids.includes(m.idMeal));
+      } else if (category === "Western") {
+        results = allMeals.filter((m) =>
+          ["American", "British", "Canadian", "French", "Italian"].includes(
+            m.strArea
+          )
+        );
+      } else {
+        results = allMeals;
+      }
+
+      const filtered = results
+        .map((meal) => {
+          const missingCount = getMissingCount(meal);
+          return { ...meal, missingCount };
+        })
+        .filter((meal) => meal.missingCount < meal.ingredients.length)
+        .sort((a, b) => a.missingCount - b.missingCount);
+
+      setFilteredMeals(filtered);
+    } catch (err) {
+      console.error("❌ Category filter error:", err);
+    }
   };
 
   return (
@@ -102,18 +149,22 @@ export default function MenuScreen() {
         onChangeText={setSearchQuery}
         style={{ margin: 10, borderRadius: 8 }}
       />
-      <View style={{ flexDirection: "row", justifyContent: "center", margin: 10 }}>
+
+      <View
+        style={{ flexDirection: "row", justifyContent: "center", margin: 10 }}
+      >
         {["All", "Western", "Healthy"].map((cat) => (
           <Button
             key={cat}
             mode={activeCategory === cat ? "contained" : "outlined"}
-            onPress={() => setActiveCategory(cat)}
+            onPress={() => filterByCategory(cat)}
             style={{ marginRight: 5 }}
           >
             {cat}
           </Button>
         ))}
       </View>
+
       <FlatList
         data={filteredMeals}
         keyExtractor={(item) => item.idMeal}
@@ -122,11 +173,11 @@ export default function MenuScreen() {
             <View style={styles.item}>
               <View style={styles.textWrapper}>
                 <Text style={styles.text}>{item.strMeal}</Text>
-                {getMissingCount(item) !== null && (
+                {item.missingCount > 0 ? (
                   <Text style={{ color: "gray" }}>
-                    You Are Missing {getMissingCount(item)} ingredients
+                    You Are Missing {item.missingCount} ingredients
                   </Text>
-                )}
+                ) : null}
               </View>
               <Image source={{ uri: item.strMealThumb }} style={styles.image} />
             </View>
