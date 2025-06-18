@@ -11,6 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type MealDBIngredient = {
   idIngredient: string;
@@ -114,6 +115,11 @@ export default function IngredientsScreen() {
     try {
       console.log("🔼 Sending ingredients:", ingredients);
 
+      await AsyncStorage.setItem(
+        "latest_ingredients",
+        JSON.stringify(ingredients)
+      ); // ✅ Store to local storage
+
       const res = await fetch(
         "https://5649-2001-44c8-4110-35af-aca3-a28e-4d1b-8d15.ngrok-free.app/api/ingredient",
         {
@@ -130,6 +136,7 @@ export default function IngredientsScreen() {
       console.log("✅ Server response:", data);
 
       alert("Ingredients saved!");
+      router.replace("/menu"); // ✅ Go to menu screen
     } catch (error) {
       console.error("❌ Failed to submit ingredients:", error);
       alert("Failed to save ingredients");
@@ -144,7 +151,9 @@ export default function IngredientsScreen() {
       </View>
       <TouchableOpacity
         onPress={() =>
-          setIngredients((prev) => prev.filter((ing) => ing.name !== item.name))
+          setIngredients((prev) =>
+            prev.filter((ing) => ing.name !== item.name)
+          )
         }
         style={styles.qtyBtn}
       >
