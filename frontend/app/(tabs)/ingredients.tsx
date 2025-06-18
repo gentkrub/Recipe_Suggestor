@@ -41,7 +41,7 @@ export default function IngredientsScreen() {
     const fetchLatestIngredients = async () => {
       try {
         const res = await fetch(
-          "https://5b44-2001-44c8-6700-e7d2-203a-e8f3-1ed8-4e6d.ngrok-free.app/api/ingredients/latest"
+          "https://5649-2001-44c8-4110-35af-aca3-a28e-4d1b-8d15.ngrok-free.app/api/ingredients/latest"
         );
         const data = await res.json();
 
@@ -115,7 +115,7 @@ export default function IngredientsScreen() {
       console.log("🔼 Sending ingredients:", ingredients);
 
       const res = await fetch(
-        "https://5b44-2001-44c8-6700-e7d2-203a-e8f3-1ed8-4e6d.ngrok-free.app/api/ingredient",
+        "https://5649-2001-44c8-4110-35af-aca3-a28e-4d1b-8d15.ngrok-free.app/api/ingredient",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

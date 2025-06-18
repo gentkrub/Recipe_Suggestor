@@ -46,7 +46,6 @@ export default function MenuScreen() {
           }
         }
         setAllMeals(results);
-        setFilteredMeals(results);
       } catch (err) {
         console.error("❌ Error fetching meals:", err);
       }
@@ -64,15 +63,31 @@ export default function MenuScreen() {
   }, []);
 
   useEffect(() => {
+    if (allMeals.length === 0 || userIngredients.length === 0) return;
+
+    const matchedMeals = allMeals
+      .map((meal) => {
+        const missingCount = meal.ingredients.filter(
+          (ing: string) => !userIngredients.includes(ing)
+        ).length;
+        return { ...meal, missingCount };
+      })
+      .filter((meal) => meal.missingCount < meal.ingredients.length) // at least 1 matched ingredient
+      .sort((a, b) => a.missingCount - b.missingCount);
+
+    setFilteredMeals(matchedMeals);
+  }, [allMeals, userIngredients]);
+
+  useEffect(() => {
     if (searchQuery.trim() === "") {
-      setFilteredMeals(allMeals);
+      setFilteredMeals((prev) => [...prev]);
     } else {
       const q = searchQuery.trim().toLowerCase();
-      setFilteredMeals(
-        allMeals.filter((meal) => meal.strMeal.toLowerCase().startsWith(q))
+      setFilteredMeals((prev) =>
+        prev.filter((meal) => meal.strMeal.toLowerCase().startsWith(q))
       );
     }
-  }, [searchQuery, allMeals]);
+  }, [searchQuery]);
 
   const filterByCategory = async (category: string) => {
     setActiveCategory(category);
@@ -102,17 +117,24 @@ export default function MenuScreen() {
         results = allMeals;
       }
 
-      setFilteredMeals(results);
+      const filtered = results
+        .map((meal) => {
+          const missingCount = meal.ingredients.filter(
+            (ing: string) => !userIngredients.includes(ing)
+          ).length;
+          return { ...meal, missingCount };
+        })
+        .filter((meal) => meal.missingCount < meal.ingredients.length)
+        .sort((a, b) => a.missingCount - b.missingCount);
+
+      setFilteredMeals(filtered);
     } catch (err) {
       console.error("❌ Category filter error:", err);
     }
   };
 
   const getMissingCount = (meal: any) => {
-    if (!meal.ingredients) return 0;
-    return meal.ingredients.filter(
-      (ing: string) => !userIngredients.includes(ing)
-    ).length;
+    return meal.missingCount ?? 0;
   };
 
   return (

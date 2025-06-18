@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import { useAuth } from "../../auth-context";
+import { useAuth } from "../auth-context";
 
 export default function Signup() {
   const [form, setForm] = useState({
