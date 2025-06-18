@@ -4,11 +4,13 @@ const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const mysql = require("mysql2");
+const bcrypt = require("bcryptjs");
 const { SpeechClient } = require("@google-cloud/speech");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
 // 🔊 Google Cloud Speech-to-Text
 const client = new SpeechClient();
@@ -23,7 +25,6 @@ app.post("/speech-to-text", async (req, res) => {
   if (!audio || !isBase64(audio)) {
     return res.status(400).json({ error: "Invalid or missing audio" });
   }
-
   try {
     const transcription = await recognizeSpeech(audio);
     return res.json({ text: transcription });
@@ -57,9 +58,8 @@ app.get("/recipes/:ingredient", async (req, res) => {
 
 // 🍽️ Proxy route to get meals by first letter (bypasses local network issues)
 app.get("/api/proxy/meals", async (req, res) => {
-  const letter = req.query.f || "a"; // default to 'a' if none given
+  const letter = req.query.f || "a";
   const url = `https://www.themealdb.com/api/json/v1/1/search.php?f=${letter}`;
-
   try {
     const response = await axios.get(url);
     res.json(response.data);
@@ -69,7 +69,7 @@ app.get("/api/proxy/meals", async (req, res) => {
   }
 });
 
-// ✅ MySQL Database Setup via ngrok or local
+// ✅ MySQL Database Setup
 const db = mysql.createConnection({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
@@ -84,6 +84,100 @@ db.connect((err) => {
   } else {
     console.log("✅ Connected to MySQL");
   }
+});
+
+// 👤 SIGNUP with bcrypt
+app.post("/signup", async (req, res) => {
+  const { firstname, lastname, age, gender, height, email, password } = req.body;
+
+  if (
+    !firstname ||
+    !lastname ||
+    !age ||
+    !gender ||
+    !height ||
+    !email ||
+    !password
+  ) {
+    return res.status(400).json({ error: "Please fill in all fields." });
+  }
+
+  // Height check (must be 50-250 cm)
+  const parsedHeight = parseInt(height, 10);
+  if (isNaN(parsedHeight) || parsedHeight < 50 || parsedHeight > 250) {
+    return res
+      .status(400)
+      .json({ error: "Height must be between 50 and 250 cm." });
+  }
+
+  // Age check
+  const parsedAge = parseInt(age, 10);
+  if (isNaN(parsedAge) || parsedAge < 1 || parsedAge > 120) {
+    return res.status(400).json({ error: "Please enter a valid age (1-120)." });
+  }
+
+  // Email already exists?
+  db.query("SELECT * FROM signup WHERE email = ?", [email], async (err, result) => {
+    if (err) return res.status(500).json({ error: "Database error" });
+
+    if (result.length > 0) {
+      return res.status(409).json({ error: "Email already exists." });
+    }
+
+    // Hash the password!
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const insertSql = `
+      INSERT INTO signup 
+        (firstname, lastname, age, gender, height, email, password) 
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+    db.query(
+      insertSql,
+      [firstname, lastname, age, gender, height, email, hashedPassword],
+      (err2, result2) => {
+        if (err2) return res.status(500).json({ error: "Database error" });
+
+        // Return user info (no password)
+        res.json({
+          id: result2.insertId,
+          firstname,
+          lastname,
+          age,
+          gender,
+          height,
+          email,
+        });
+      }
+    );
+  });
+});
+
+// 👤 LOGIN with bcrypt compare
+app.post("/login", (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: "Please enter email and password." });
+  }
+
+  db.query("SELECT * FROM signup WHERE email = ?", [email], async (err, results) => {
+    if (err) return res.status(500).json({ error: "Database error" });
+
+    if (results.length === 0) {
+      return res.status(401).json({ error: "Invalid email or password." });
+    }
+
+    const user = results[0];
+    const passwordMatch = await bcrypt.compare(password, user.password);
+
+    if (!passwordMatch) {
+      return res.status(401).json({ error: "Invalid email or password." });
+    }
+
+    // Return user info (no password)
+    const { id, firstname, lastname, age, gender, height, email: userEmail } = user;
+    res.json({ id, firstname, lastname, age, gender, height, email: userEmail });
+  });
 });
 
 // 💾 Save Ingredients

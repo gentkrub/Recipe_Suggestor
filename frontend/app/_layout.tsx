@@ -1,40 +1,92 @@
-import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
-import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
-import * as SplashScreen from "expo-splash-screen";
-import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
-import "react-native-reanimated";
+import { Tabs, useRouter, Slot } from "expo-router";
+import React, { useEffect } from "react";
+import { View, ActivityIndicator } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { AuthProvider, useAuth } from "../auth-context";
 
-import { useColorScheme } from "@/hooks/useColorScheme";
-
-// Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
-
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
-  });
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
+    if (!loading && !user) {
+      router.replace("/login");
     }
-  }, [loaded]);
+  }, [user, loading]);
 
-  if (!loaded) {
-    return null;
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
   }
 
+  if (!user) {
+    return <Slot />; // don't render tabs, just children (won't happen in tabs)
+  }
+  return <>{children}</>;
+}
+
+export default function TabLayout() {
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DefaultTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-        <Stack.Screen name="[mealId]" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <AuthProvider>
+      <AuthGate>
+        <Tabs screenOptions={{ headerShown: false }}>
+          <Tabs.Screen
+            name="index"
+            options={{
+              title: "Explore",
+              tabBarIcon: ({ color, focused }) => (
+                <Ionicons
+                  name={focused ? "search" : "search-outline"}
+                  color={color}
+                  size={28}
+                />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="menu"
+            options={{
+              title: "Menu",
+              tabBarIcon: ({ color, focused }) => (
+                <Ionicons
+                  name={focused ? "restaurant" : "restaurant-outline"}
+                  color={color}
+                  size={28}
+                />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="ingredients"
+            options={{
+              title: "Ingredients",
+              tabBarIcon: ({ color, focused }) => (
+                <Ionicons
+                  name={focused ? "fast-food" : "fast-food-outline"}
+                  color={color}
+                  size={27}
+                />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="profile"
+            options={{
+              title: "Profile",
+              tabBarIcon: ({ color, focused }) => (
+                <Ionicons
+                  name={focused ? "person-circle" : "person-circle-outline"}
+                  color={color}
+                  size={27}
+                />
+              ),
+            }}
+          />
+        </Tabs>
+      </AuthGate>
+    </AuthProvider>
   );
 }
