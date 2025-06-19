@@ -149,15 +149,17 @@ app.post("/login", (req, res) => {
 });
 
 app.post("/api/ingredient", (req, res) => {
-  const { ingredients, submitted_at } = req.body;
-  if (!ingredients || ingredients.length === 0 || !submitted_at) return res.status(400).json({ error: "Missing ingredients or timestamp" });
+  const { ingredients, submitted_at, user_id } = req.body;
+  if (!ingredients || ingredients.length === 0 || !submitted_at || !user_id) {
+    return res.status(400).json({ error: "Missing ingredients, timestamp, or user ID" });
+  }
 
-  const submissionSql = "INSERT INTO submissions (submitted_at) VALUES (?)";
-  db.query(submissionSql, [submitted_at], (err, result) => {
+  const submissionSql = "INSERT INTO submissions (submitted_at, user_id) VALUES (?, ?)";
+  db.query(submissionSql, [submitted_at, user_id], (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
 
     const submissionId = result.insertId;
-    const values = ingredients.map((item) => [submissionId, item.name, item.quantity]);
+    const values = ingredients.map((item) => [submissionId, item.name, item.quantity || 1]);
     const ingredientSql = "INSERT INTO ingredients (submission_id, name, quantity) VALUES ?";
 
     db.query(ingredientSql, [values], (err2, result2) => {
@@ -168,8 +170,11 @@ app.post("/api/ingredient", (req, res) => {
 });
 
 app.get("/api/ingredients/latest", (req, res) => {
-  const latestSubmissionSql = "SELECT submission_id FROM submissions ORDER BY submission_id DESC LIMIT 1";
-  db.query(latestSubmissionSql, (err, submissionResult) => {
+  const userId = req.query.user_id;
+  if (!userId) return res.status(400).json({ error: "Missing user ID" });
+
+  const latestSubmissionSql = "SELECT submission_id FROM submissions WHERE user_id = ? ORDER BY submission_id DESC LIMIT 1";
+  db.query(latestSubmissionSql, [userId], (err, submissionResult) => {
     if (err) return res.status(500).json({ error: err.message });
     if (submissionResult.length === 0) return res.json({ ingredients: [] });
 
@@ -182,7 +187,6 @@ app.get("/api/ingredients/latest", (req, res) => {
   });
 });
 
-// ⭐ NEW: Save favorite
 app.post("/api/favorites", (req, res) => {
   const { user_id, meal_id, meal_name, meal_thumb } = req.body;
   if (!user_id || !meal_id) return res.status(400).json({ error: "Missing user ID or meal ID" });
@@ -194,7 +198,6 @@ app.post("/api/favorites", (req, res) => {
   });
 });
 
-// ⭐ NEW: Get favorites for user
 app.get("/api/favorites/:user_id", (req, res) => {
   const userId = req.params.user_id;
   const sql = `SELECT * FROM favorites WHERE user_id = ?`;
@@ -204,7 +207,6 @@ app.get("/api/favorites/:user_id", (req, res) => {
   });
 });
 
-// ⭐ NEW: Remove favorite
 app.delete("/api/favorites", (req, res) => {
   const { user_id, meal_id } = req.body;
   if (!user_id || !meal_id) return res.status(400).json({ error: "Missing user ID or meal ID" });

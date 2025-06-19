@@ -15,25 +15,16 @@ import * as FileSystem from "expo-file-system";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
-type MealDBIngredient = {
-  idIngredient: string;
-  strIngredient: string;
-  strDescription: string;
-};
-
-type Ingredient = {
-  name: string;
-  image: string;
-};
+import { useAuth } from "../../auth-context";
 
 export default function IngredientsScreen() {
-  const [inputText, setInputText] = useState<string>("");
-  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
-  const [allIngredients, setAllIngredients] = useState<MealDBIngredient[]>([]);
-  const [suggestions, setSuggestions] = useState<MealDBIngredient[]>([]);
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [inputText, setInputText] = useState("");
+  const [ingredients, setIngredients] = useState([]);
+  const [allIngredients, setAllIngredients] = useState([]);
+  const [suggestions, setSuggestions] = useState([]);
+  const [recording, setRecording] = useState(null);
   const router = useRouter();
+  const { user } = useAuth();
 
   useEffect(() => {
     fetch("https://www.themealdb.com/api/json/v1/1/list.php?i=list")
@@ -43,30 +34,29 @@ export default function IngredientsScreen() {
       })
       .catch((err) => console.error("Failed to fetch ingredients:", err));
 
-    const fetchLatestIngredients = async () => {
+    const fetchUserIngredients = async () => {
       try {
         const res = await fetch(
-          "https://9fd1-2001-44c8-46e2-14f8-d027-39f5-267e-dc39.ngrok-free.app/api/ingredients/latest"
+          `https://9fd1-2001-44c8-46e2-14f8-d027-39f5-267e-dc39.ngrok-free.app/api/ingredients/latest?user_id=${user?.id}`
         );
         const data = await res.json();
 
         if (data.ingredients && data.ingredients.length > 0) {
-          const restored = data.ingredients.map((item: any) => ({
+          const restored = data.ingredients.map((item) => ({
             name: item.name,
             image: `https://www.themealdb.com/images/ingredients/${item.name}.png`,
           }));
           setIngredients(restored);
-          console.log("🟢 Restored ingredients:", restored);
         }
       } catch (error) {
         console.error("❌ Failed to load latest ingredients:", error);
       }
     };
 
-    fetchLatestIngredients();
-  }, []);
+    if (user?.id) fetchUserIngredients();
+  }, [user]);
 
-  const handleInputChange = (text: string) => {
+  const handleInputChange = (text) => {
     const cleanedText = text.trim().replace(/[.,!?]+$/, "").toLowerCase();
     setInputText(text);
 
@@ -89,9 +79,7 @@ export default function IngredientsScreen() {
     );
 
     if (!found) {
-      alert(
-        "❌ This ingredient is not recognized. Please select from the suggestion list."
-      );
+      alert("❌ This ingredient is not recognized. Please select from the suggestion list.");
       return;
     }
 
@@ -115,14 +103,12 @@ export default function IngredientsScreen() {
 
   const startRecording = async () => {
     try {
-      console.log("🎙️ Requesting permissions...");
       await Audio.requestPermissionsAsync();
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
       });
 
-      console.log("🎙️ Starting recording...");
       const { recording } = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
@@ -133,12 +119,10 @@ export default function IngredientsScreen() {
   };
 
   const stopRecording = async () => {
-    console.log("🛑 Stopping recording...");
     if (!recording) return;
     try {
       await recording.stopAndUnloadAsync();
       const uri = recording.getURI();
-      console.log("✅ Recorded file:", uri);
       if (uri) await uploadAndTranscribe(uri);
       setRecording(null);
     } catch (error) {
@@ -146,7 +130,7 @@ export default function IngredientsScreen() {
     }
   };
 
-  const uploadAndTranscribe = async (fileUri: string) => {
+  const uploadAndTranscribe = async (fileUri) => {
     const fileInfo = await FileSystem.getInfoAsync(fileUri);
     const formData = new FormData();
 
@@ -154,7 +138,7 @@ export default function IngredientsScreen() {
       uri: fileInfo.uri,
       name: "recording.m4a",
       type: "audio/m4a",
-    } as any);
+    });
 
     try {
       const response = await fetch(
@@ -169,7 +153,6 @@ export default function IngredientsScreen() {
       );
 
       const data = await response.json();
-      console.log("📝 Transcription:", data.transcript);
       if (data.transcript)
         handleInputChange(data.transcript.trim().replace(/[.,!?]+$/, ""));
     } catch (err) {
@@ -181,12 +164,7 @@ export default function IngredientsScreen() {
     const now = new Date().toISOString().slice(0, 19).replace("T", " ");
 
     try {
-      console.log("🔼 Sending ingredients:", ingredients);
-
-      await AsyncStorage.setItem(
-        "latest_ingredients",
-        JSON.stringify(ingredients)
-      );
+      await AsyncStorage.setItem("latest_ingredients", JSON.stringify(ingredients));
 
       const res = await fetch(
         "https://9fd1-2001-44c8-46e2-14f8-d027-39f5-267e-dc39.ngrok-free.app/api/ingredient",
@@ -195,14 +173,13 @@ export default function IngredientsScreen() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             submitted_at: now,
+            user_id: user?.id,
             ingredients: ingredients,
           }),
         }
       );
 
       const data = await res.json();
-      console.log("✅ Server response:", data);
-
       alert("Ingredients saved!");
       router.replace("/menu");
     } catch (error) {
@@ -211,7 +188,7 @@ export default function IngredientsScreen() {
     }
   };
 
-  const renderItem = ({ item }: { item: Ingredient }) => (
+  const renderItem = ({ item }) => (
     <View style={styles.ingredientItem}>
       <View style={styles.ingredientRow}>
         <Image source={{ uri: item.image }} style={styles.ingredientImage} />
@@ -219,9 +196,7 @@ export default function IngredientsScreen() {
       </View>
       <TouchableOpacity
         onPress={() =>
-          setIngredients((prev) =>
-            prev.filter((ing) => ing.name !== item.name)
-          )
+          setIngredients((prev) => prev.filter((ing) => ing.name !== item.name))
         }
         style={styles.qtyBtn}
       >
@@ -245,9 +220,7 @@ export default function IngredientsScreen() {
               onChangeText={handleInputChange}
               onSubmitEditing={addIngredient}
             />
-            <TouchableOpacity
-              onPress={recording ? stopRecording : startRecording}
-            >
+            <TouchableOpacity onPress={recording ? stopRecording : startRecording}>
               <Ionicons
                 name={recording ? "stop-circle" : "mic"}
                 size={20}
@@ -304,17 +277,12 @@ export default function IngredientsScreen() {
             data={ingredients}
             keyExtractor={(item) => item.name}
             renderItem={renderItem}
-            ListEmptyComponent={
-              <Text style={styles.emptyText}>No ingredients yet.</Text>
-            }
+            ListEmptyComponent={<Text style={styles.emptyText}>No ingredients yet.</Text>}
             keyboardShouldPersistTaps="handled"
           />
         </View>
 
-        <TouchableOpacity
-          onPress={submitIngredients}
-          style={styles.nextButton}
-        >
+        <TouchableOpacity onPress={submitIngredients} style={styles.nextButton}>
           <Text style={styles.nextText}>Next</Text>
         </TouchableOpacity>
       </View>
@@ -323,100 +291,21 @@ export default function IngredientsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fed7aa",
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-  },
-  inputRow: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    borderRadius: 25,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  input: {
-    flex: 1,
-    marginHorizontal: 10,
-  },
-  suggestionWrapper: {
-    maxHeight: 150,
-    marginBottom: 10,
-  },
-  suggestionItem: {
-    backgroundColor: "#fff",
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#ccc",
-  },
-  suggestionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  suggestionImage: {
-    width: 30,
-    height: 30,
-    borderRadius: 5,
-  },
-  heading: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginVertical: 10,
-  },
-  ingredientItem: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 10,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  ingredientRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  ingredientImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-  },
-  ingredientText: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  qtyBtn: {
-    paddingHorizontal: 10,
-  },
-  nextButton: {
-    position: "absolute",
-    bottom: 10,
-    left: 20,
-    right: 20,
-    backgroundColor: "#38bdf8",
-    padding: 15,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  nextText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-  emptyText: {
-    textAlign: "center",
-    color: "#999",
-    marginTop: 30,
-  },
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#fed7aa",
-  },
+  container: { flex: 1, backgroundColor: "#fed7aa", paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
+  inputRow: { flexDirection: "row", backgroundColor: "#fff", borderRadius: 25, paddingHorizontal: 15, paddingVertical: 10, alignItems: "center", marginBottom: 10 },
+  input: { flex: 1, marginHorizontal: 10 },
+  suggestionWrapper: { maxHeight: 150, marginBottom: 10 },
+  suggestionItem: { backgroundColor: "#fff", padding: 10, borderBottomWidth: 1, borderBottomColor: "#ccc" },
+  suggestionRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  suggestionImage: { width: 30, height: 30, borderRadius: 5 },
+  heading: { fontSize: 20, fontWeight: "bold", marginVertical: 10 },
+  ingredientItem: { backgroundColor: "#fff", borderRadius: 12, padding: 15, marginBottom: 10, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  ingredientRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  ingredientImage: { width: 40, height: 40, borderRadius: 8 },
+  ingredientText: { fontSize: 16, fontWeight: "500" },
+  qtyBtn: { paddingHorizontal: 10 },
+  nextButton: { position: "absolute", bottom: 10, left: 20, right: 20, backgroundColor: "#38bdf8", padding: 15, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  nextText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+  emptyText: { textAlign: "center", color: "#999", marginTop: 30 },
+  safeArea: { flex: 1, backgroundColor: "#fed7aa" },
 });
