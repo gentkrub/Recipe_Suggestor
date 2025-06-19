@@ -9,6 +9,9 @@ import {
   Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Audio } from "expo-av";
+import * as FileSystem from "expo-file-system";
+
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -29,6 +32,7 @@ export default function IngredientsScreen() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [allIngredients, setAllIngredients] = useState<MealDBIngredient[]>([]);
   const [suggestions, setSuggestions] = useState<MealDBIngredient[]>([]);
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -42,7 +46,7 @@ export default function IngredientsScreen() {
     const fetchLatestIngredients = async () => {
       try {
         const res = await fetch(
-          "https://5649-2001-44c8-4110-35af-aca3-a28e-4d1b-8d15.ngrok-free.app/api/ingredients/latest"
+          "https://9fd1-2001-44c8-46e2-14f8-d027-39f5-267e-dc39.ngrok-free.app/api/ingredients/latest"
         );
         const data = await res.json();
 
@@ -63,7 +67,7 @@ export default function IngredientsScreen() {
   }, []);
 
   const handleInputChange = (text: string) => {
-    const cleanedText = text.trim().toLowerCase();
+    const cleanedText = text.trim().replace(/[.,!?]+$/, "").toLowerCase();
     setInputText(text);
 
     if (cleanedText.length > 0) {
@@ -77,11 +81,11 @@ export default function IngredientsScreen() {
   };
 
   const addIngredient = () => {
-    const name = inputText.trim();
-    if (!name) return;
+    const cleaned = inputText.trim().replace(/[.,!?]+$/, "");
+    if (!cleaned) return;
 
     const found = allIngredients.find(
-      (item) => item.strIngredient.toLowerCase() === name.toLowerCase()
+      (item) => item.strIngredient.toLowerCase() === cleaned.toLowerCase()
     );
 
     if (!found) {
@@ -92,7 +96,7 @@ export default function IngredientsScreen() {
     }
 
     const exists = ingredients.find(
-      (item) => item.name.toLowerCase() === name.toLowerCase()
+      (item) => item.name.toLowerCase() === cleaned.toLowerCase()
     );
 
     if (!exists) {
@@ -109,6 +113,70 @@ export default function IngredientsScreen() {
     setSuggestions([]);
   };
 
+  const startRecording = async () => {
+    try {
+      console.log("🎙️ Requesting permissions...");
+      await Audio.requestPermissionsAsync();
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      console.log("🎙️ Starting recording...");
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      setRecording(recording);
+    } catch (err) {
+      console.error("❌ Failed to start recording:", err);
+    }
+  };
+
+  const stopRecording = async () => {
+    console.log("🛑 Stopping recording...");
+    if (!recording) return;
+    try {
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      console.log("✅ Recorded file:", uri);
+      if (uri) await uploadAndTranscribe(uri);
+      setRecording(null);
+    } catch (error) {
+      console.error("❌ Failed to stop recording:", error);
+    }
+  };
+
+  const uploadAndTranscribe = async (fileUri: string) => {
+    const fileInfo = await FileSystem.getInfoAsync(fileUri);
+    const formData = new FormData();
+
+    formData.append("audio", {
+      uri: fileInfo.uri,
+      name: "recording.m4a",
+      type: "audio/m4a",
+    } as any);
+
+    try {
+      const response = await fetch(
+        "https://9fd1-2001-44c8-46e2-14f8-d027-39f5-267e-dc39.ngrok-free.app/speech",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+      console.log("📝 Transcription:", data.transcript);
+      if (data.transcript)
+        handleInputChange(data.transcript.trim().replace(/[.,!?]+$/, ""));
+    } catch (err) {
+      console.error("❌ Upload error:", err);
+    }
+  };
+
   const submitIngredients = async () => {
     const now = new Date().toISOString().slice(0, 19).replace("T", " ");
 
@@ -118,10 +186,10 @@ export default function IngredientsScreen() {
       await AsyncStorage.setItem(
         "latest_ingredients",
         JSON.stringify(ingredients)
-      ); // ✅ Store to local storage
+      );
 
       const res = await fetch(
-        "https://5649-2001-44c8-4110-35af-aca3-a28e-4d1b-8d15.ngrok-free.app/api/ingredient",
+        "https://9fd1-2001-44c8-46e2-14f8-d027-39f5-267e-dc39.ngrok-free.app/api/ingredient",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -136,7 +204,7 @@ export default function IngredientsScreen() {
       console.log("✅ Server response:", data);
 
       alert("Ingredients saved!");
-      router.replace("/menu"); // ✅ Go to menu screen
+      router.replace("/menu");
     } catch (error) {
       console.error("❌ Failed to submit ingredients:", error);
       alert("Failed to save ingredients");
@@ -177,8 +245,14 @@ export default function IngredientsScreen() {
               onChangeText={handleInputChange}
               onSubmitEditing={addIngredient}
             />
-            <TouchableOpacity onPress={() => {}}>
-              <Ionicons name="mic" size={20} color="#999" />
+            <TouchableOpacity
+              onPress={recording ? stopRecording : startRecording}
+            >
+              <Ionicons
+                name={recording ? "stop-circle" : "mic"}
+                size={20}
+                color="#999"
+              />
             </TouchableOpacity>
           </View>
 
@@ -237,7 +311,10 @@ export default function IngredientsScreen() {
           />
         </View>
 
-        <TouchableOpacity onPress={submitIngredients} style={styles.nextButton}>
+        <TouchableOpacity
+          onPress={submitIngredients}
+          style={styles.nextButton}
+        >
           <Text style={styles.nextText}>Next</Text>
         </TouchableOpacity>
       </View>

@@ -20,8 +20,10 @@ export default function Profile() {
   useFocusEffect(
     useCallback(() => {
       const loadFavorites = async () => {
+        if (!user) return;
         try {
-          const stored = await AsyncStorage.getItem("favorites");
+          const key = `favorites_${user.email}`;
+          const stored = await AsyncStorage.getItem(key);
           const favs = stored ? JSON.parse(stored) : [];
           setFavorites(favs);
         } catch (err) {
@@ -29,7 +31,7 @@ export default function Profile() {
         }
       };
       loadFavorites();
-    }, [])
+    }, [user])
   );
 
   const logout = async () => {

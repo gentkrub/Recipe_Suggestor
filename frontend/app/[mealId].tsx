@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,11 +11,15 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "../auth-context";
+import axios from "axios";
 
 export default function MealDetailPage() {
   const { mealId } = useLocalSearchParams();
   const [meal, setMeal] = useState<any>(null);
   const [userIngredients, setUserIngredients] = useState<string[]>([]);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const { user } = useAuth();
   const router = useRouter();
 
   const loadIngredients = async () => {
@@ -24,33 +28,67 @@ export default function MealDetailPage() {
       const parsed = stored ? JSON.parse(stored) : [];
       const names = parsed.map((item: any) => item.name.toLowerCase());
       setUserIngredients(names);
-      console.log("🧂 Loaded user ingredients:", names);
     } catch (err) {
       console.error("❌ Failed to load user ingredients:", err);
     }
   };
 
+  const loadFavoriteStatus = async () => {
+    if (!user || !mealId) return;
+    try {
+      const key = `favorites_${user.email}`;
+      const stored = await AsyncStorage.getItem(key);
+      const favs = stored ? JSON.parse(stored) : [];
+      const exists = favs.some((m: any) => m.idMeal === mealId);
+      setIsFavorite(exists);
+    } catch (err) {
+      console.error("❌ Load favorite error:", err);
+    }
+  };
+
+  const toggleFavorite = async () => {
+    if (!user || !meal) return;
+    try {
+      const key = `favorites_${user.email}`;
+      const stored = await AsyncStorage.getItem(key);
+      const favs = stored ? JSON.parse(stored) : [];
+
+      const exists = favs.find((m: any) => m.idMeal === meal.idMeal);
+      let updated;
+
+      if (exists) {
+        updated = favs.filter((m: any) => m.idMeal !== meal.idMeal);
+        setIsFavorite(false);
+      } else {
+        updated = [...favs, meal];
+        setIsFavorite(true);
+      }
+
+      await AsyncStorage.setItem(key, JSON.stringify(updated));
+    } catch (err) {
+      console.error("❌ Toggle favorite error:", err);
+    }
+  };
+
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       loadIngredients();
-    }, [])
+      loadFavoriteStatus();
+    }, [mealId])
   );
 
   useEffect(() => {
     if (!mealId) return;
-
     const fetchMeal = async () => {
       try {
-        const res = await fetch(
+        const res = await axios.get(
           `https://www.themealdb.com/api/json/v1/1/lookup.php?i=${mealId}`
         );
-        const data = await res.json();
-        setMeal(data.meals[0]);
+        setMeal(res.data.meals[0]);
       } catch (err) {
-        console.error("❌ Failed to fetch meal:", err);
+        console.error("❌ Fetch meal error:", err);
       }
     };
-
     fetchMeal();
   }, [mealId]);
 
@@ -100,7 +138,17 @@ export default function MealDetailPage() {
           style={{ width: "100%", height: 200, borderRadius: 10 }}
         />
 
-        <Text style={styles.title}>{meal.strMeal}</Text>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <Text style={styles.title}>{meal.strMeal}</Text>
+          <TouchableOpacity onPress={toggleFavorite}>
+            <Ionicons
+              name={isFavorite ? "heart" : "heart-outline"}
+              size={28}
+              color={isFavorite ? "red" : "gray"}
+            />
+          </TouchableOpacity>
+        </View>
+
         <Text style={styles.matchLabel}>Your Ingredient Match</Text>
         <Text style={styles.matchCount}>
           ✅ You have {matchedCount}/{totalCount} ingredients

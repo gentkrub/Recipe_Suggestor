@@ -12,7 +12,9 @@ import { Searchbar, Button } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { distance } from "fastest-levenshtein";
+import * as FileSystem from "expo-file-system";
+import { Audio } from "expo-av";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function MenuScreen() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -20,8 +22,75 @@ export default function MenuScreen() {
   const [filteredMeals, setFilteredMeals] = useState<any[]>([]);
   const [userIngredients, setUserIngredients] = useState<string[]>([]);
   const [activeCategory, setActiveCategory] = useState("All");
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
 
   const router = useRouter();
+
+  const startRecording = async () => {
+    try {
+      console.log("🎙️ Requesting permissions...");
+      await Audio.requestPermissionsAsync();
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      console.log("🎙️ Starting recording...");
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      setRecording(recording);
+    } catch (err) {
+      console.error("❌ Failed to start recording:", err);
+    }
+  };
+
+  const stopRecording = async () => {
+    console.log("🛑 Stopping recording...");
+    if (!recording) return;
+    try {
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      console.log("✅ Recorded file:", uri);
+      if (uri) await uploadAndTranscribe(uri);
+      setRecording(null);
+    } catch (error) {
+      console.error("❌ Failed to stop recording:", error);
+    }
+  };
+
+  const uploadAndTranscribe = async (fileUri: string) => {
+    const fileInfo = await FileSystem.getInfoAsync(fileUri);
+    const formData = new FormData();
+
+    formData.append("audio", {
+      uri: fileInfo.uri,
+      name: "recording.m4a",
+      type: "audio/m4a",
+    } as any);
+
+    try {
+      const response = await fetch(
+        "https://9fd1-2001-44c8-46e2-14f8-d027-39f5-267e-dc39.ngrok-free.app/speech",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+      console.log("📝 Transcription:", data.transcript);
+      if (data.transcript) {
+        const cleaned = data.transcript.trim().replace(/[.,!?]+$/, "");
+        setSearchQuery(cleaned);
+      }
+    } catch (err) {
+      console.error("❌ Upload error:", err);
+    }
+  };
 
   useEffect(() => {
     const fetchAllMeals = async () => {
@@ -63,41 +132,27 @@ export default function MenuScreen() {
     loadIngredients();
   }, []);
 
-  const fuzzyIncludes = (ing: string, list: string[]) => {
-    return list.some(
-      (i) => distance(i.toLowerCase(), ing.toLowerCase()) <= 2
-    );
-  };
-
-  const getMissingCount = (meal: any) => {
-    if (!meal.ingredients) return 0;
-    return meal.ingredients.filter(
-      (ing: string) => !fuzzyIncludes(ing, userIngredients)
-    ).length;
-  };
-
   useEffect(() => {
-    const matchedMeals = allMeals
+    if (!allMeals || allMeals.length === 0) return;
+
+    const filtered = allMeals
       .map((meal) => {
-        const missingCount = getMissingCount(meal);
+        const missingCount = meal.ingredients.filter(
+          (ing: string) => !userIngredients.includes(ing)
+        ).length;
         return { ...meal, missingCount };
       })
-      .filter((meal) => meal.missingCount < meal.ingredients.length)
+      .filter((meal) => {
+        const match = meal.missingCount < meal.ingredients.length;
+        const nameMatch = meal.strMeal
+          .toLowerCase()
+          .includes(searchQuery.trim().toLowerCase());
+        return match && (searchQuery.trim() === "" || nameMatch);
+      })
       .sort((a, b) => a.missingCount - b.missingCount);
 
-    setFilteredMeals(matchedMeals);
-  }, [allMeals, userIngredients]);
-
-  useEffect(() => {
-    if (searchQuery.trim() === "") {
-      setFilteredMeals((prev) => [...prev]);
-    } else {
-      const q = searchQuery.trim().toLowerCase();
-      setFilteredMeals((prev) =>
-        prev.filter((meal) => meal.strMeal.toLowerCase().startsWith(q))
-      );
-    }
-  }, [searchQuery]);
+    setFilteredMeals(filtered);
+  }, [searchQuery, allMeals, userIngredients]);
 
   const filterByCategory = async (category: string) => {
     setActiveCategory(category);
@@ -129,7 +184,9 @@ export default function MenuScreen() {
 
       const filtered = results
         .map((meal) => {
-          const missingCount = getMissingCount(meal);
+          const missingCount = meal.ingredients.filter(
+            (ing: string) => !userIngredients.includes(ing)
+          ).length;
           return { ...meal, missingCount };
         })
         .filter((meal) => meal.missingCount < meal.ingredients.length)
@@ -141,14 +198,30 @@ export default function MenuScreen() {
     }
   };
 
+  const getMissingCount = (meal: any) => {
+    return meal.missingCount ?? 0;
+  };
+
   return (
     <SafeAreaView>
-      <Searchbar
-        placeholder="Search for a menu..."
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        style={{ margin: 10, borderRadius: 8 }}
-      />
+      <View style={{ flexDirection: "row", alignItems: "center", margin: 10 }}>
+        <Searchbar
+          placeholder="Search for a menu..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          style={{ flex: 1, borderRadius: 8 }}
+        />
+        <TouchableOpacity
+          onPress={recording ? stopRecording : startRecording}
+          style={{ marginLeft: 10 }}
+        >
+          <Ionicons
+            name={recording ? "stop-circle" : "mic"}
+            size={24}
+            color="#666"
+          />
+        </TouchableOpacity>
+      </View>
 
       <View
         style={{ flexDirection: "row", justifyContent: "center", margin: 10 }}
@@ -173,13 +246,16 @@ export default function MenuScreen() {
             <View style={styles.item}>
               <View style={styles.textWrapper}>
                 <Text style={styles.text}>{item.strMeal}</Text>
-                {item.missingCount > 0 ? (
+                {getMissingCount(item) > 0 && (
                   <Text style={{ color: "gray" }}>
-                    You Are Missing {item.missingCount} ingredients
+                    You Are Missing {getMissingCount(item)} ingredients
                   </Text>
-                ) : null}
+                )}
               </View>
-              <Image source={{ uri: item.strMealThumb }} style={styles.image} />
+              <Image
+                source={{ uri: item.strMealThumb }}
+                style={styles.image}
+              />
             </View>
           </TouchableOpacity>
         )}

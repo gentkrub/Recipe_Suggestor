@@ -11,14 +11,75 @@ import {
 import { Searchbar, Button } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import * as FileSystem from "expo-file-system";
+import { Audio } from "expo-av";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function ExploreScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [allMeals, setAllMeals] = useState<any[]>([]);
   const [filteredMeals, setFilteredMeals] = useState<any[]>([]);
   const [activeCategory, setActiveCategory] = useState("All");
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
 
   const router = useRouter();
+
+  const startRecording = async () => {
+    try {
+      await Audio.requestPermissionsAsync();
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      setRecording(recording);
+    } catch (err) {
+      console.error("❌ Failed to start recording:", err);
+    }
+  };
+
+  const stopRecording = async () => {
+    if (!recording) return;
+    try {
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      if (uri) await uploadAndTranscribe(uri);
+      setRecording(null);
+    } catch (error) {
+      console.error("❌ Failed to stop recording:", error);
+    }
+  };
+
+  const uploadAndTranscribe = async (fileUri: string) => {
+    const fileInfo = await FileSystem.getInfoAsync(fileUri);
+    const formData = new FormData();
+
+    formData.append("audio", {
+      uri: fileInfo.uri,
+      name: "recording.m4a",
+      type: "audio/m4a",
+    } as any);
+
+    try {
+      const response = await fetch("https://9fd1-2001-44c8-46e2-14f8-d027-39f5-267e-dc39.ngrok-free.app/speech", {
+        method: "POST",
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (data.transcript) {
+        const cleaned = data.transcript.trim().replace(/[.,!?]+$/, "");
+        setSearchQuery(cleaned);
+      }
+    } catch (err) {
+      console.error("❌ Upload error:", err);
+    }
+  };
 
   useEffect(() => {
     const fetchAllMeals = async () => {
@@ -91,12 +152,24 @@ export default function ExploreScreen() {
 
   return (
     <SafeAreaView>
-      <Searchbar
-        placeholder="Search for a meal..."
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        style={{ margin: 10, borderRadius: 8 }}
-      />
+      <View style={{ flexDirection: "row", alignItems: "center", margin: 10 }}>
+        <Searchbar
+          placeholder="Search for a meal..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          style={{ flex: 1, borderRadius: 8 }}
+        />
+        <TouchableOpacity
+          onPress={recording ? stopRecording : startRecording}
+          style={{ marginLeft: 10 }}
+        >
+          <Ionicons
+            name={recording ? "stop-circle" : "mic"}
+            size={24}
+            color="#666"
+          />
+        </TouchableOpacity>
+      </View>
 
       <View
         style={{ flexDirection: "row", justifyContent: "center", margin: 10 }}
