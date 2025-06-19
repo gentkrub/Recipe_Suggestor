@@ -1,48 +1,62 @@
+// server.js
 require("dotenv").config();
 const axios = require("axios");
+process.env.GOOGLE_APPLICATION_CREDENTIALS = "./speech-key.json";
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const mysql = require("mysql2");
+const multer = require("multer");
 const bcrypt = require("bcryptjs");
+const fs = require("fs");
 const { SpeechClient } = require("@google-cloud/speech");
 
 const app = express();
 app.use(cors());
-app.use(express.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 
-// 🔊 Google Cloud Speech-to-Text
 const client = new SpeechClient();
 
 app.get("/", (req, res) => {
   res.send("Backend is working!");
 });
 
-// 🎤 Speech-to-text endpoint
-app.post("/speech-to-text", async (req, res) => {
-  const { audio } = req.body;
-  if (!audio || !isBase64(audio)) {
-    return res.status(400).json({ error: "Invalid or missing audio" });
-  }
+const upload = multer({ dest: "uploads/" });
+
+app.post("/speech", upload.single("audio"), async (req, res) => {
   try {
-    const transcription = await recognizeSpeech(audio);
-    return res.json({ text: transcription });
-  } catch (error) {
-    console.error("Speech recognition failed:", error);
-    return res
-      .status(500)
-      .json({ error: "Speech recognition failed", details: error.message });
+    const filePath = req.file.path;
+    const audioBytes = fs.readFileSync(filePath).toString("base64");
+
+    const request = {
+      config: {
+        encoding: "WEBM_OPUS",
+        sampleRateHertz: 48000,
+        languageCode: "en-US",
+        enableAutomaticPunctuation: true,
+      },
+      audio: { content: audioBytes },
+    };
+    console.log("🧪 Sending audio to Google:", {
+      length: audioBytes.length,
+      config: request.config,
+    });
+    const [response] = await client.recognize(request);
+    const transcription = response.results.map(r => r.alternatives[0].transcript).join("\n");
+
+    fs.unlinkSync(filePath);
+    res.json({ transcript: transcription });
+  } catch (err) {
+    console.error("❌ Error transcribing audio:", err);
+    res.status(500).json({ error: "Failed to transcribe" });
   }
 });
 
-// 🌐 MealDB API forwarding route (ingredient-based)
 app.get("/recipes/:ingredient", async (req, res) => {
   const ingredient = req.params.ingredient;
   try {
-    const response = await axios.get(
-      `https://www.themealdb.com/api/json/v1/1/filter.php?i=${ingredient}`
-    );
+    const response = await axios.get(`https://www.themealdb.com/api/json/v1/1/filter.php?i=${ingredient}`);
     if (response.data.meals) {
       res.json(response.data);
     } else {
@@ -50,13 +64,10 @@ app.get("/recipes/:ingredient", async (req, res) => {
     }
   } catch (error) {
     console.error("Error fetching recipes:", error);
-    res
-      .status(500)
-      .json({ error: "Failed to fetch recipes", details: error.message });
+    res.status(500).json({ error: "Failed to fetch recipes", details: error.message });
   }
 });
 
-// 🍽️ Proxy route to get meals by first letter (bypasses local network issues)
 app.get("/api/proxy/meals", async (req, res) => {
   const letter = req.query.f || "a";
   const url = `https://www.themealdb.com/api/json/v1/1/search.php?f=${letter}`;
@@ -69,7 +80,6 @@ app.get("/api/proxy/meals", async (req, res) => {
   }
 });
 
-// ✅ MySQL Database Setup
 const db = mysql.createConnection({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
@@ -86,37 +96,23 @@ db.connect((err) => {
   }
 });
 
-// 👤 SIGNUP with bcrypt
 app.post("/signup", async (req, res) => {
   const { firstname, lastname, age, gender, height, email, password } = req.body;
 
-  if (
-    !firstname ||
-    !lastname ||
-    !age ||
-    !gender ||
-    !height ||
-    !email ||
-    !password
-  ) {
+  if (!firstname || !lastname || !age || !gender || !height || !email || !password) {
     return res.status(400).json({ error: "Please fill in all fields." });
   }
 
-  // Height check (must be 50-250 cm)
   const parsedHeight = parseInt(height, 10);
   if (isNaN(parsedHeight) || parsedHeight < 50 || parsedHeight > 250) {
-    return res
-      .status(400)
-      .json({ error: "Height must be between 50 and 250 cm." });
+    return res.status(400).json({ error: "Height must be between 50 and 250 cm." });
   }
 
-  // Age check
   const parsedAge = parseInt(age, 10);
   if (isNaN(parsedAge) || parsedAge < 1 || parsedAge > 120) {
     return res.status(400).json({ error: "Please enter a valid age (1-120)." });
   }
 
-  // Email already exists?
   db.query("SELECT * FROM signup WHERE email = ?", [email], async (err, result) => {
     if (err) return res.status(500).json({ error: "Database error" });
 
@@ -124,107 +120,61 @@ app.post("/signup", async (req, res) => {
       return res.status(409).json({ error: "Email already exists." });
     }
 
-    // Hash the password!
     const hashedPassword = await bcrypt.hash(password, 10);
+    const insertSql = `INSERT INTO signup (firstname, lastname, age, gender, height, email, password) VALUES (?, ?, ?, ?, ?, ?, ?)`;
 
-    const insertSql = `
-      INSERT INTO signup 
-        (firstname, lastname, age, gender, height, email, password) 
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `;
-    db.query(
-      insertSql,
-      [firstname, lastname, age, gender, height, email, hashedPassword],
-      (err2, result2) => {
-        if (err2) return res.status(500).json({ error: "Database error" });
+    db.query(insertSql, [firstname, lastname, age, gender, height, email, hashedPassword], (err2, result2) => {
+      if (err2) return res.status(500).json({ error: "Database error" });
 
-        // Return user info (no password)
-        res.json({
-          id: result2.insertId,
-          firstname,
-          lastname,
-          age,
-          gender,
-          height,
-          email,
-        });
-      }
-    );
+      res.json({ id: result2.insertId, firstname, lastname, age, gender, height, email });
+    });
   });
 });
 
-// 👤 LOGIN with bcrypt compare
 app.post("/login", (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: "Please enter email and password." });
-  }
+  if (!email || !password) return res.status(400).json({ error: "Please enter email and password." });
 
   db.query("SELECT * FROM signup WHERE email = ?", [email], async (err, results) => {
     if (err) return res.status(500).json({ error: "Database error" });
-
-    if (results.length === 0) {
-      return res.status(401).json({ error: "Invalid email or password." });
-    }
+    if (results.length === 0) return res.status(401).json({ error: "Invalid email or password." });
 
     const user = results[0];
     const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) return res.status(401).json({ error: "Invalid email or password." });
 
-    if (!passwordMatch) {
-      return res.status(401).json({ error: "Invalid email or password." });
-    }
-
-    // Return user info (no password)
     const { id, firstname, lastname, age, gender, height, email: userEmail } = user;
     res.json({ id, firstname, lastname, age, gender, height, email: userEmail });
   });
 });
 
-// 💾 Save Ingredients
 app.post("/api/ingredient", (req, res) => {
   const { ingredients, submitted_at } = req.body;
-
-  if (!ingredients || ingredients.length === 0 || !submitted_at) {
-    return res.status(400).json({ error: "Missing ingredients or timestamp" });
-  }
+  if (!ingredients || ingredients.length === 0 || !submitted_at) return res.status(400).json({ error: "Missing ingredients or timestamp" });
 
   const submissionSql = "INSERT INTO submissions (submitted_at) VALUES (?)";
   db.query(submissionSql, [submitted_at], (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
 
     const submissionId = result.insertId;
-    const values = ingredients.map((item) => [
-      submissionId,
-      item.name,
-      item.quantity,
-    ]);
-    const ingredientSql =
-      "INSERT INTO ingredients (submission_id, name, quantity) VALUES ?";
+    const values = ingredients.map((item) => [submissionId, item.name, item.quantity]);
+    const ingredientSql = "INSERT INTO ingredients (submission_id, name, quantity) VALUES ?";
 
     db.query(ingredientSql, [values], (err2, result2) => {
       if (err2) return res.status(500).json({ error: err2.message });
-
-      res.json({
-        message: "Submission and ingredients saved",
-        submission_id: submissionId,
-      });
+      res.json({ message: "Submission and ingredients saved", submission_id: submissionId });
     });
   });
 });
 
-// 📦 Load Latest Ingredients
 app.get("/api/ingredients/latest", (req, res) => {
-  const latestSubmissionSql =
-    "SELECT submission_id FROM submissions ORDER BY submission_id DESC LIMIT 1";
-
+  const latestSubmissionSql = "SELECT submission_id FROM submissions ORDER BY submission_id DESC LIMIT 1";
   db.query(latestSubmissionSql, (err, submissionResult) => {
     if (err) return res.status(500).json({ error: err.message });
     if (submissionResult.length === 0) return res.json({ ingredients: [] });
 
     const latestId = submissionResult[0].submission_id;
-    const ingredientSql =
-      "SELECT name, quantity FROM ingredients WHERE submission_id = ?";
-
+    const ingredientSql = "SELECT name, quantity FROM ingredients WHERE submission_id = ?";
     db.query(ingredientSql, [latestId], (err2, ingredientsResult) => {
       if (err2) return res.status(500).json({ error: err2.message });
       res.json({ submission_id: latestId, ingredients: ingredientsResult });
@@ -232,35 +182,40 @@ app.get("/api/ingredients/latest", (req, res) => {
   });
 });
 
-// 🎧 Helper: Speech recognition
-async function recognizeSpeech(base64Audio) {
-  const request = {
-    config: {
-      encoding: "FLAC",
-      languageCode: "en-US",
-      enableAutomaticPunctuation: true,
-    },
-    audio: { content: base64Audio },
-  };
+// ⭐ NEW: Save favorite
+app.post("/api/favorites", (req, res) => {
+  const { user_id, meal_id, meal_name, meal_thumb } = req.body;
+  if (!user_id || !meal_id) return res.status(400).json({ error: "Missing user ID or meal ID" });
 
-  const [response] = await client.recognize(request);
-  const transcription = response.results
-    .map((result) => result.alternatives[0].transcript)
-    .join("\n");
+  const sql = `INSERT INTO favorites (user_id, meal_id, meal_name, meal_thumb) VALUES (?, ?, ?, ?)`;
+  db.query(sql, [user_id, meal_id, meal_name, meal_thumb], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: "Favorite saved" });
+  });
+});
 
-  return transcription || "No speech detected.";
-}
+// ⭐ NEW: Get favorites for user
+app.get("/api/favorites/:user_id", (req, res) => {
+  const userId = req.params.user_id;
+  const sql = `SELECT * FROM favorites WHERE user_id = ?`;
+  db.query(sql, [userId], (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ favorites: results });
+  });
+});
 
-// 🧪 Helper: Validate base64
-function isBase64(str) {
-  try {
-    return Buffer.from(str, "base64").toString("base64") === str;
-  } catch {
-    return false;
-  }
-}
+// ⭐ NEW: Remove favorite
+app.delete("/api/favorites", (req, res) => {
+  const { user_id, meal_id } = req.body;
+  if (!user_id || !meal_id) return res.status(400).json({ error: "Missing user ID or meal ID" });
 
-// 🚀 Start Server
+  const sql = `DELETE FROM favorites WHERE user_id = ? AND meal_id = ?`;
+  db.query(sql, [user_id, meal_id], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: "Favorite removed" });
+  });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);

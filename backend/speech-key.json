@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "turing-nature-459908-k9",
+  "private_key_id": "4ee4965a420e9b276b761a2d1468741bc831aa5d",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDWtxaRXQYbPKLs\nb5qjhvIG1MbRuSqi1T4bKUj/Nn879kpH6hdxKxielpair6GOL1hW2EMpIKNQIISr\nC6f9XBD1cpw0VNOz9UbAg7W41c37RuvygK+UUQrG7tBv7Y/wb+cb4RgIK0WCA45H\nnoLDhh6w+xj/ITGFc+B3lxsATUPg76I01S+hqs7lU5nUV1rg10rUdA6g2KOzEYv2\no9JZ6PIDbTYh4Cn8iXQYkIw9PLjDzloU0XWwrwFVeFuylLo8kDU+vLkxPb601G8+\nngkUGYpO2uoJ3KlRO+La3mBzagQs4Et0boWllBxFZMHbJfhQQAYLUr7QdHZSoZQD\npDfOmBR1AgMBAAECggEABkbsr8LMXflVVbd10xXipQl6+aUK8fptPE9T4uq5A/Bj\nrWSuEgxkaoFUp+Wd1B9eWvwrr5vm3utzTpf0/+/PmInuAB6CcsC7j9qFTdyFIUeq\nbuaNMlu/T7HzL0zH2mcZ8go0p92f+4HW9jXB4r+TqR68+da5g0EwMWNnSQh5Oglg\njaBst9sokp6Xg1yUlLmIMLvyeCFaevzEMfYrUJQkXVyznqoKnBD+gS6W0xlKjtg1\nfJTRFGhzcWwVPFnxtF/vK+2Suc4UEt8XHngv78HeM/mxU00Zy5IqAk1UjgK9KKd2\n5u7feaCma2FYBn+kJJ7FJL876AnlXnv4l3wVQlm91wKBgQDrPMzIm6r/ydWiO5lB\nAabh7Zw9a4VoYVkKk+NKuMORgVbBUf+xd053umo38X5iE9BqOs1slruI1heNGb+M\n9/uJSlJWwewG7nGBpaUkKq9qTZ/1M+3MCNg77ycpMzuC2C4zqThy/FfGtJIfg5W1\nV3qZjrF8E7seTeAsL1BKy2BmWwKBgQDpqpX4j7BJuIbkaOek+UboKihtfcTggoFr\n4ZT7R556vBGIs13Gs04ERnyu1ZAsFXKbWRen2w07G610CGNdumcN88z5GpqQkK3j\namUArFvXxvzD7suug1kpeAGLf4iz0teLur/JZC/VtagBAux58uABw1RadLZBHBo9\nsFU9LB+JbwKBgCqMbsYCUiW+DiQv/4JgmBzZa584aYL9yKs/IKeNT+JrsJN7D3K8\nD7dcQoYn6iI3T0VHqYxwny8a+luNQrZuzFKC3O3QWa7PRjybB4nJJr1lmP8zC1oS\nZ3o/waeUGrmJ/KFfhFRYDFBmrN+CX3vTfNt1kejNcNUEZP3Y+P7uVlttAoGBAL/U\nbtinxhdPqVZdFUcn6uFwss3owbd7DJsvj+qXCnFCcraiYmtdCsCRyYyTAZBfbz4/\n7x67w+nxt/2ZYVIyVKZsr6sV/yyNymP4FcFuvtuvnhWQtqCnboyP29zVL7pJbvFk\nuEyytl6hirKB3vfiv6pS3K6CQJnFY3mfiOr2jVF7AoGAGFw5dtr0ypelxTNxAi/e\n9NYrWb6rs3Cab7WLHVG+f2rSZ2fUX/H+S3MkYdiC5+Mld7ED4a+h/GsPHOz4Iodn\nYywvg9Fmt9eCTIkmCxJxLzVlfvTZjTN1VIgR3dH1pXPGlEFuLHevi+thWUXtcirl\nCudSBxttpsTYpsCh22GZknk=\n-----END PRIVATE KEY-----\n",
+  "client_email": "speech-api-service@turing-nature-459908-k9.iam.gserviceaccount.com",
+  "client_id": "117434585471505929496",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/speech-api-service%40turing-nature-459908-k9.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
