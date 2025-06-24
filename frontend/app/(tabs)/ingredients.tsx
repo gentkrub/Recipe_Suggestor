@@ -23,6 +23,7 @@ export default function IngredientsScreen() {
   const [allIngredients, setAllIngredients] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
   const [recording, setRecording] = useState(null);
+  const [showAll, setShowAll] = useState(false);
   const router = useRouter();
   const { user } = useAuth();
 
@@ -145,9 +146,7 @@ export default function IngredientsScreen() {
         "https://9fd1-2001-44c8-46e2-14f8-d027-39f5-267e-dc39.ngrok-free.app/speech",
         {
           method: "POST",
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
+          headers: { "Content-Type": "multipart/form-data" },
           body: formData,
         }
       );
@@ -175,13 +174,14 @@ export default function IngredientsScreen() {
             submitted_at: now,
             user_id: user?.id,
             ingredients: ingredients,
+            timestamp: Date.now(),
           }),
         }
       );
 
-      const data = await res.json();
+      await res.json();
       alert("Ingredients saved!");
-      router.replace("/menu");
+      router.replace("/menu?reload=" + Date.now());
     } catch (error) {
       console.error("❌ Failed to submit ingredients:", error);
       alert("Failed to save ingredients");
@@ -208,79 +208,112 @@ export default function IngredientsScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <View style={{ flex: 1, paddingBottom: 80 }}>
-          <View style={styles.inputRow}>
-            <TouchableOpacity onPress={addIngredient}>
-              <Ionicons name="search" size={20} color="#999" />
-            </TouchableOpacity>
-            <TextInput
-              style={styles.input}
-              placeholder="Add ingredients"
-              value={inputText}
-              onChangeText={handleInputChange}
-              onSubmitEditing={addIngredient}
+        <View style={styles.inputRow}>
+          <TouchableOpacity onPress={() => setShowAll(!showAll)}>
+            <Ionicons name={showAll ? "close" : "search"} size={24} color="#999" />
+          </TouchableOpacity>
+          <TextInput
+            style={styles.input}
+            placeholder="Add ingredients"
+            value={inputText}
+            onChangeText={handleInputChange}
+            onSubmitEditing={addIngredient}
+          />
+          <TouchableOpacity onPress={recording ? stopRecording : startRecording}>
+            <Ionicons name={recording ? "stop-circle" : "mic"} size={24} color="#999" />
+          </TouchableOpacity>
+        </View>
+
+        {showAll && (
+          <View style={styles.suggestionWrapper}>
+            <FlatList
+              data={allIngredients}
+              keyExtractor={(item) => item.idIngredient}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  onPress={() => {
+                    const name = item.strIngredient;
+                    const exists = ingredients.find(
+                      (i) => i.name.toLowerCase() === name.toLowerCase()
+                    );
+                    if (!exists) {
+                      setIngredients((prev) => [
+                        ...prev,
+                        {
+                          name,
+                          image: `https://www.themealdb.com/images/ingredients/${name}.png`,
+                        },
+                      ]);
+                    }
+                  }}
+                  style={styles.suggestionItem}
+                >
+                  <View style={styles.suggestionRow}>
+                    <Image
+                      source={{ uri: `https://www.themealdb.com/images/ingredients/${item.strIngredient}.png` }}
+                      style={styles.suggestionImage}
+                    />
+                    <Text>{item.strIngredient}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              keyboardShouldPersistTaps="handled"
             />
-            <TouchableOpacity onPress={recording ? stopRecording : startRecording}>
-              <Ionicons
-                name={recording ? "stop-circle" : "mic"}
-                size={20}
-                color="#999"
-              />
+            <TouchableOpacity onPress={() => setShowAll(false)} style={styles.exitButton}>
+              <Text style={styles.exitText}>Exit</Text>
             </TouchableOpacity>
           </View>
+        )}
 
-          {suggestions.length > 0 && (
-            <View style={styles.suggestionWrapper}>
-              <FlatList
-                data={suggestions}
-                keyExtractor={(item) => item.idIngredient}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    onPress={() => {
-                      const name = item.strIngredient;
-                      const exists = ingredients.find(
-                        (i) => i.name.toLowerCase() === name.toLowerCase()
-                      );
-                      if (!exists) {
-                        setIngredients((prev) => [
-                          ...prev,
-                          {
-                            name,
-                            image: `https://www.themealdb.com/images/ingredients/${name}.png`,
-                          },
-                        ]);
-                      }
-                      setInputText("");
-                      setSuggestions([]);
-                    }}
-                    style={styles.suggestionItem}
-                  >
-                    <View style={styles.suggestionRow}>
-                      <Image
-                        source={{
-                          uri: `https://www.themealdb.com/images/ingredients/${item.strIngredient}.png`,
-                        }}
-                        style={styles.suggestionImage}
-                      />
-                      <Text>{item.strIngredient}</Text>
-                    </View>
-                  </TouchableOpacity>
-                )}
-                keyboardShouldPersistTaps="handled"
-              />
-            </View>
-          )}
+        {!showAll && suggestions.length > 0 && (
+          <View style={styles.suggestionWrapper}>
+            <FlatList
+              data={suggestions}
+              keyExtractor={(item) => item.idIngredient}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  onPress={() => {
+                    const name = item.strIngredient;
+                    const exists = ingredients.find(
+                      (i) => i.name.toLowerCase() === name.toLowerCase()
+                    );
+                    if (!exists) {
+                      setIngredients((prev) => [
+                        ...prev,
+                        {
+                          name,
+                          image: `https://www.themealdb.com/images/ingredients/${name}.png`,
+                        },
+                      ]);
+                    }
+                    setInputText("");
+                    setSuggestions([]);
+                  }}
+                  style={styles.suggestionItem}
+                >
+                  <View style={styles.suggestionRow}>
+                    <Image
+                      source={{ uri: `https://www.themealdb.com/images/ingredients/${item.strIngredient}.png` }}
+                      style={styles.suggestionImage}
+                    />
+                    <Text>{item.strIngredient}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              keyboardShouldPersistTaps="handled"
+            />
+          </View>
+        )}
 
-          <Text style={styles.heading}>Ingredients</Text>
+        <Text style={styles.heading}>Ingredients</Text>
 
-          <FlatList
-            data={ingredients}
-            keyExtractor={(item) => item.name}
-            renderItem={renderItem}
-            ListEmptyComponent={<Text style={styles.emptyText}>No ingredients yet.</Text>}
-            keyboardShouldPersistTaps="handled"
-          />
-        </View>
+        <FlatList
+          data={ingredients}
+          keyExtractor={(item) => item.name}
+          renderItem={renderItem}
+          ListEmptyComponent={<Text style={styles.emptyText}>No ingredients yet.</Text>}
+          keyboardShouldPersistTaps="handled"
+        />
 
         <TouchableOpacity onPress={submitIngredients} style={styles.nextButton}>
           <Text style={styles.nextText}>Next</Text>
@@ -291,10 +324,10 @@ export default function IngredientsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fed7aa", paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
-  inputRow: { flexDirection: "row", backgroundColor: "#fff", borderRadius: 25, paddingHorizontal: 15, paddingVertical: 10, alignItems: "center", marginBottom: 10 },
-  input: { flex: 1, marginHorizontal: 10 },
-  suggestionWrapper: { maxHeight: 150, marginBottom: 10 },
+  container: { flex: 1, backgroundColor: "#fed7aa", paddingHorizontal: 20, paddingTop: 30, paddingBottom: 20 },
+  inputRow: { flexDirection: "row", backgroundColor: "#fff", borderRadius: 25, paddingHorizontal: 15, paddingVertical: 15, alignItems: "center", marginBottom: 10 },
+  input: { flex: 1, marginHorizontal: 10, fontSize: 18, paddingVertical: 10 },
+  suggestionWrapper: { maxHeight: 200, marginBottom: 10 },
   suggestionItem: { backgroundColor: "#fff", padding: 10, borderBottomWidth: 1, borderBottomColor: "#ccc" },
   suggestionRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   suggestionImage: { width: 30, height: 30, borderRadius: 5 },
@@ -308,4 +341,6 @@ const styles = StyleSheet.create({
   nextText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
   emptyText: { textAlign: "center", color: "#999", marginTop: 30 },
   safeArea: { flex: 1, backgroundColor: "#fed7aa" },
+  exitButton: { backgroundColor: "red", padding: 10, borderRadius: 8, alignItems: "center", marginTop: 10 },
+  exitText: { color: "#fff", fontWeight: "bold" },
 });

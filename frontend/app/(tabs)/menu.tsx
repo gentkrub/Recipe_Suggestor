@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { Searchbar, Button } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system";
 import { Audio } from "expo-av";
@@ -25,6 +25,7 @@ export default function MenuScreen() {
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [showMore, setShowMore] = useState(false);
 
+  const { reload } = useLocalSearchParams(); // ✅ listen to reload param
   const router = useRouter();
 
   const startRecording = async () => {
@@ -93,45 +94,46 @@ export default function MenuScreen() {
     }
   };
 
-  useEffect(() => {
-    const fetchAllMeals = async () => {
-      try {
-        const results: any[] = [];
-        for (let c = 97; c <= 122; c++) {
-          const letter = String.fromCharCode(c);
-          const res = await axios.get(
-            `https://www.themealdb.com/api/json/v1/1/search.php?f=${letter}`
-          );
-          if (res.data.meals) {
-            const meals = res.data.meals.map((meal: any) => {
-              const ingredients: string[] = [];
-              for (let i = 1; i <= 20; i++) {
-                const ing = meal[`strIngredient${i}`];
-                if (ing && ing.trim() !== "") {
-                  ingredients.push(ing.toLowerCase());
-                }
+  const fetchAllMeals = async () => {
+    try {
+      const results: any[] = [];
+      for (let c = 97; c <= 122; c++) {
+        const letter = String.fromCharCode(c);
+        const res = await axios.get(
+          `https://www.themealdb.com/api/json/v1/1/search.php?f=${letter}`
+        );
+        if (res.data.meals) {
+          const meals = res.data.meals.map((meal: any) => {
+            const ingredients: string[] = [];
+            for (let i = 1; i <= 20; i++) {
+              const ing = meal[`strIngredient${i}`];
+              if (ing && ing.trim() !== "") {
+                ingredients.push(ing.toLowerCase());
               }
-              return { ...meal, ingredients };
-            });
-            results.push(...meals);
-          }
+            }
+            return { ...meal, ingredients };
+          });
+          results.push(...meals);
         }
-        setAllMeals(results);
-      } catch (err) {
-        console.error("❌ Error fetching meals:", err);
       }
-    };
+      setAllMeals(results);
+    } catch (err) {
+      console.error("❌ Error fetching meals:", err);
+    }
+  };
 
-    const loadIngredients = async () => {
-      const stored = await AsyncStorage.getItem("latest_ingredients");
-      const parsed = stored ? JSON.parse(stored) : [];
-      const names = parsed.map((item: any) => item.name.toLowerCase());
-      setUserIngredients(names);
-    };
+  const loadIngredients = async () => {
+    const stored = await AsyncStorage.getItem("latest_ingredients");
+    const parsed = stored ? JSON.parse(stored) : [];
+    const names = parsed.map((item: any) => item.name.toLowerCase());
+    setUserIngredients(names);
+  };
 
+  // ✅ Refresh on first load and on every reload
+  useEffect(() => {
     fetchAllMeals();
     loadIngredients();
-  }, []);
+  }, [reload]);
 
   useEffect(() => {
     if (!allMeals || allMeals.length === 0) return;
@@ -181,7 +183,9 @@ export default function MenuScreen() {
         );
       } else if (category === "Thai") {
         results = allMeals.filter((m) => m.strArea === "Thai");
-      } else if (["Seafood", "Dessert", "Beef", "Chicken", "Breakfast"].includes(category)) {
+      } else if (
+        ["Seafood", "Dessert", "Beef", "Chicken", "Breakfast"].includes(category)
+      ) {
         const response = await axios.get(
           `https://www.themealdb.com/api/json/v1/1/filter.php?c=${category}`
         );
@@ -211,7 +215,17 @@ export default function MenuScreen() {
     return meal.missingCount ?? 0;
   };
 
-  const categories = ["All", "Western", "Healthy", "Thai", "Seafood", "Dessert", "Beef", "Chicken", "Breakfast"];
+  const categories = [
+    "All",
+    "Western",
+    "Healthy",
+    "Thai",
+    "Seafood",
+    "Dessert",
+    "Beef",
+    "Chicken",
+    "Breakfast",
+  ];
   const visibleCategories = categories.slice(0, 3);
   const hiddenCategories = categories.slice(3);
 
@@ -240,7 +254,12 @@ export default function MenuScreen() {
       </View>
 
       <View
-        style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", margin: 10 }}
+        style={{
+          flexDirection: "row",
+          flexWrap: "wrap",
+          justifyContent: "center",
+          margin: 10,
+        }}
       >
         {visibleCategories.map((cat) => (
           <Button
@@ -255,18 +274,19 @@ export default function MenuScreen() {
           </Button>
         ))}
 
-        {showMore && hiddenCategories.map((cat) => (
-          <Button
-            key={cat}
-            mode={activeCategory === cat ? "contained" : "outlined"}
-            onPress={() => filterByCategory(cat)}
-            style={{ margin: 5 }}
-            buttonColor={activeCategory === cat ? "#ff8c00" : undefined}
-            textColor={activeCategory === cat ? "#fff" : "#ff8c00"}
-          >
-            {cat}
-          </Button>
-        ))}
+        {showMore &&
+          hiddenCategories.map((cat) => (
+            <Button
+              key={cat}
+              mode={activeCategory === cat ? "contained" : "outlined"}
+              onPress={() => filterByCategory(cat)}
+              style={{ margin: 5 }}
+              buttonColor={activeCategory === cat ? "#ff8c00" : undefined}
+              textColor={activeCategory === cat ? "#fff" : "#ff8c00"}
+            >
+              {cat}
+            </Button>
+          ))}
 
         <Button
           onPress={() => setShowMore(!showMore)}

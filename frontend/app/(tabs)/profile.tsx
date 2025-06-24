@@ -52,14 +52,15 @@ export default function Profile() {
       </TouchableOpacity>
 
       {showInfo && user && (
-        <View style={styles.profileCard}>
-          <Text style={styles.profileItem}><Text style={styles.label}>Name: </Text>{user.firstname} {user.lastname}</Text>
-          <Text style={styles.profileItem}><Text style={styles.label}>Age: </Text>{user.age}</Text>
-          <Text style={styles.profileItem}><Text style={styles.label}>Gender: </Text>{user.gender}</Text>
-          <Text style={styles.profileItem}><Text style={styles.label}>Height: </Text>{user.height}</Text>
-          <Text style={styles.profileItem}><Text style={styles.label}>Email: </Text>{user.email}</Text>
-        </View>
-      )}
+  <View style={styles.profileCard}>
+    <Text style={styles.profileItem}><Text style={styles.label}>Name: </Text>{user.firstname} {user.lastname}</Text>
+    <Text style={styles.profileItem}><Text style={styles.label}>Age: </Text>{user.age}</Text>
+    <Text style={styles.profileItem}><Text style={styles.label}>Gender: </Text>{user.gender}</Text>
+    <Text style={styles.profileItem}><Text style={styles.label}>Height: </Text>{user.height} cm</Text>
+    <Text style={styles.profileItem}><Text style={styles.label}>Weight: </Text>{user.weight} kg</Text> {/* ✅ New Line */}
+    <Text style={styles.profileItem}><Text style={styles.label}>Email: </Text>{user.email}</Text>
+  </View>
+)}
 
       <View style={styles.buttonRow}>
         <TouchableOpacity onPress={() => Linking.openURL("https://forms.gle/hqQCzwz1PDMK7Qah8")} style={[styles.actionButton, { backgroundColor: '#0ea5e9' }]}>

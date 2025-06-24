@@ -5,29 +5,28 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Platform,
   Modal,
   FlatList,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { useAuth } from "../auth-context";
 
 export default function Signup() {
   const [form, setForm] = useState({
     firstname: "",
     lastname: "",
-    dob: new Date(),
+    dob: "", // string input
     gender: "",
     height: "",
+    weight: "",
     email: "",
     password: "",
   });
 
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [showGenderModal, setShowGenderModal] = useState(false);
   const [showHeightModal, setShowHeightModal] = useState(false);
+  const [showWeightModal, setShowWeightModal] = useState(false);
 
   const [error, setError] = useState("");
   const router = useRouter();
@@ -35,16 +34,30 @@ export default function Signup() {
 
   const genders = ["Male", "Female", "Rather Not Say"];
   const heights = Array.from({ length: 201 }, (_, i) => (i + 50).toString());
+  const weights = Array.from({ length: 151 }, (_, i) => (i + 30).toString());
 
-  const handleChange = (name: string, value: string) => {
+  const handleChange = (name, value) => {
     setForm({ ...form, [name]: value });
   };
 
-  const calculateAge = (dob: Date) => {
+  const calculateAge = (dobString) => {
+    const parts = dobString.split("/");
+    if (parts.length !== 3) return 0;
+
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const year = parseInt(parts[2], 10);
+
+    const dob = new Date(year, month, day);
     const today = new Date();
-    const age = today.getFullYear() - dob.getFullYear();
+    let age = today.getFullYear() - dob.getFullYear();
     const m = today.getMonth() - dob.getMonth();
-    return m < 0 || (m === 0 && today.getDate() < dob.getDate()) ? age - 1 : age;
+
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+      age--;
+    }
+
+    return age;
   };
 
   const handleSubmit = async () => {
@@ -55,8 +68,10 @@ export default function Signup() {
       !form.lastname ||
       !form.gender ||
       !form.height ||
+      !form.weight ||
       !form.email ||
-      !form.password
+      !form.password ||
+      !form.dob
     ) {
       setError("Please fill in all fields.");
       return;
@@ -64,7 +79,7 @@ export default function Signup() {
 
     const ageNum = calculateAge(form.dob);
     if (ageNum < 1 || ageNum > 120) {
-      setError("Please enter a valid date of birth.");
+      setError("Please enter a valid date of birth in DD/MM/YYYY format.");
       return;
     }
 
@@ -112,33 +127,29 @@ export default function Signup() {
           style={styles.input}
         />
 
-        <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.popUpButton}>
-          <Text style={styles.popUpButtonText}>Select Date of Birth</Text>
-        </TouchableOpacity>
-        <Text style={styles.selectedText}>{form.dob.toDateString()}</Text>
+        <TextInput
+          placeholder="Date of Birth (DD/MM/YYYY)"
+          placeholderTextColor="#999"
+          value={form.dob}
+          onChangeText={(text) => handleChange("dob", text)}
+          style={styles.input}
+        />
 
-        {showDatePicker && (
-          <DateTimePicker
-            value={form.dob}
-            mode="date"
-            display={Platform.OS === "ios" ? "spinner" : "default"}
-            onChange={(event, selectedDate) => {
-              setShowDatePicker(false);
-              if (selectedDate) handleChange("dob", selectedDate);
-            }}
-            maximumDate={new Date()}
-          />
-        )}
-
-        <TouchableOpacity onPress={() => setShowGenderModal(true)} style={styles.popUpButton}>
-          <Text style={styles.popUpButtonText}>
+        <TouchableOpacity onPress={() => setShowGenderModal(true)} style={styles.whiteButton}>
+          <Text style={styles.whiteButtonText}>
             {form.gender ? form.gender : "Select Gender"}
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => setShowHeightModal(true)} style={styles.popUpButton}>
-          <Text style={styles.popUpButtonText}>
+        <TouchableOpacity onPress={() => setShowHeightModal(true)} style={styles.whiteButton}>
+          <Text style={styles.whiteButtonText}>
             {form.height ? `${form.height} cm` : "Select Height"}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => setShowWeightModal(true)} style={styles.whiteButton}>
+          <Text style={styles.whiteButtonText}>
+            {form.weight ? `${form.weight} kg` : "Select Weight"}
           </Text>
         </TouchableOpacity>
 
@@ -170,6 +181,7 @@ export default function Signup() {
         </TouchableOpacity>
       </View>
 
+      {/* Gender Modal */}
       <Modal visible={showGenderModal} transparent animationType="slide">
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
@@ -193,6 +205,7 @@ export default function Signup() {
         </View>
       </Modal>
 
+      {/* Height Modal */}
       <Modal visible={showHeightModal} transparent animationType="slide">
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
@@ -213,6 +226,33 @@ export default function Signup() {
               )}
             />
             <TouchableOpacity onPress={() => setShowHeightModal(false)}>
+              <Text style={styles.modalCancel}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Weight Modal */}
+      <Modal visible={showWeightModal} transparent animationType="slide">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Weight</Text>
+            <FlatList
+              data={weights}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalOption}
+                  onPress={() => {
+                    handleChange("weight", item);
+                    setShowWeightModal(false);
+                  }}
+                >
+                  <Text style={styles.modalText}>{item} kg</Text>
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity onPress={() => setShowWeightModal(false)}>
               <Text style={styles.modalCancel}>Cancel</Text>
             </TouchableOpacity>
           </View>
@@ -258,15 +298,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#333",
   },
-  popUpButton: {
-    backgroundColor: "#ff8c00",
+  whiteButton: {
+    backgroundColor: "#fff",
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#ff8c00",
   },
-  popUpButtonText: {
-    color: "#fff",
+  whiteButtonText: {
+    color: "#ff8c00",
     fontWeight: "bold",
   },
   selectedText: {

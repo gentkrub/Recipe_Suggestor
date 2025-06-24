@@ -97,15 +97,20 @@ db.connect((err) => {
 });
 
 app.post("/signup", async (req, res) => {
-  const { firstname, lastname, age, gender, height, email, password } = req.body;
+  const { firstname, lastname, age, gender, height, weight, email, password } = req.body;
 
-  if (!firstname || !lastname || !age || !gender || !height || !email || !password) {
+  if (!firstname || !lastname || !age || !gender || !height || !weight || !email || !password) {
     return res.status(400).json({ error: "Please fill in all fields." });
   }
 
   const parsedHeight = parseInt(height, 10);
   if (isNaN(parsedHeight) || parsedHeight < 50 || parsedHeight > 250) {
     return res.status(400).json({ error: "Height must be between 50 and 250 cm." });
+  }
+
+  const parsedWeight = parseInt(weight, 10);
+  if (isNaN(parsedWeight) || parsedWeight < 30 || parsedWeight > 200) {
+    return res.status(400).json({ error: "Weight must be between 30 and 200 kg." });
   }
 
   const parsedAge = parseInt(age, 10);
@@ -121,16 +126,15 @@ app.post("/signup", async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const insertSql = `INSERT INTO signup (firstname, lastname, age, gender, height, email, password) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+    const insertSql = `INSERT INTO signup (firstname, lastname, age, gender, height, weight, email, password) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
 
-    db.query(insertSql, [firstname, lastname, age, gender, height, email, hashedPassword], (err2, result2) => {
+    db.query(insertSql, [firstname, lastname, age, gender, height, weight, email, hashedPassword], (err2, result2) => {
       if (err2) return res.status(500).json({ error: "Database error" });
 
-      res.json({ id: result2.insertId, firstname, lastname, age, gender, height, email });
+      res.json({ id: result2.insertId, firstname, lastname, age, gender, height, weight, email });
     });
   });
 });
-
 app.post("/login", (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: "Please enter email and password." });
