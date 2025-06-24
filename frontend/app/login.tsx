@@ -2,10 +2,10 @@ import React, { useState } from "react";
 import {
   View,
   TextInput,
-  Button,
   Text,
   StyleSheet,
   TouchableOpacity,
+  Image,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
@@ -30,7 +30,6 @@ export default function Login() {
         body: new URLSearchParams(form as any).toString(),
       });
       if (!response.ok) {
-        // Get error message from server (if available)
         const errorData = await response.json().catch(() => null);
         setError(errorData?.error || "Invalid email or password");
         return;
@@ -46,44 +45,97 @@ export default function Login() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Log In</Text>
-      <TextInput
-        placeholder="Email"
-        value={form.email}
-        onChangeText={(text) => handleChange("email", text)}
-        keyboardType="email-address"
-        style={styles.input}
-        autoCapitalize="none"
-      />
-      <TextInput
-        placeholder="Password"
-        value={form.password}
-        onChangeText={(text) => handleChange("password", text)}
-        secureTextEntry
-        style={styles.input}
-      />
-      {error ? <Text style={{ color: "red" }}>{error}</Text> : null}
-      <Button title="Log In" onPress={handleSubmit} />
-      <TouchableOpacity onPress={() => router.replace("/signup")}>
-        <Text style={styles.switchText}>Don’t have an account? Sign Up</Text>
-      </TouchableOpacity>
+      <Image source={require("../assets/images/Logo.png")} style={styles.logo} />
+      <View style={styles.formCard}>
+        <TextInput
+          placeholder="Enter your email"
+          placeholderTextColor="#999"
+          value={form.email}
+          onChangeText={(text) => handleChange("email", text)}
+          keyboardType="email-address"
+          style={styles.input}
+          autoCapitalize="none"
+        />
+        <TextInput
+          placeholder="Enter your password"
+          placeholderTextColor="#999"
+          value={form.password}
+          onChangeText={(text) => handleChange("password", text)}
+          secureTextEntry
+          style={styles.input}
+        />
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        <TouchableOpacity style={styles.loginButton} onPress={handleSubmit}>
+          <Text style={styles.loginText}>Log In</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.replace("/signup")}>
+          <Text style={styles.switchText}>Don’t have an account? Sign Up</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 32 },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 24,
-    textAlign: "center",
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 32,
+    backgroundColor: "#fff",
+  },
+  logo: {
+    width: 250, // Made much bigger
+    height: 250,
+    marginBottom: 16,
+    resizeMode: "contain",
+  },
+  formCard: {
+    width: "100%",
+    backgroundColor: "#fff7ec",
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   input: {
     backgroundColor: "#fff",
-    padding: 10,
+    padding: 12,
     marginBottom: 12,
-    borderRadius: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    fontSize: 16,
+    color: "#333",
   },
-  switchText: { marginTop: 16, color: "#38bdf8", textAlign: "center" },
+  loginButton: {
+    backgroundColor: "#ff8c00",
+    paddingVertical: 14,
+    borderRadius: 25,
+    alignItems: "center",
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  loginText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  errorText: {
+    color: "red",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  switchText: {
+    marginTop: 16,
+    color: "#0ea5e9",
+    textAlign: "center",
+  },
 });

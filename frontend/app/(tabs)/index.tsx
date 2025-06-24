@@ -21,6 +21,7 @@ export default function ExploreScreen() {
   const [filteredMeals, setFilteredMeals] = useState<any[]>([]);
   const [activeCategory, setActiveCategory] = useState("All");
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [showMore, setShowMore] = useState(false);
 
   const router = useRouter();
 
@@ -140,6 +141,14 @@ export default function ExploreScreen() {
             m.strArea
           )
         );
+      } else if (category === "Thai") {
+        results = allMeals.filter((m) => m.strArea === "Thai");
+      } else if (["Seafood", "Dessert", "Beef", "Chicken", "Breakfast"].includes(category)) {
+        const response = await axios.get(
+          `https://www.themealdb.com/api/json/v1/1/filter.php?c=${category}`
+        );
+        const ids = (response.data.meals || []).map((m: any) => m.idMeal);
+        results = allMeals.filter((m) => ids.includes(m.idMeal));
       } else {
         results = allMeals;
       }
@@ -150,14 +159,21 @@ export default function ExploreScreen() {
     }
   };
 
+  const categories = ["All", "Western", "Healthy", "Thai", "Seafood", "Dessert", "Beef", "Chicken", "Breakfast"];
+  const visibleCategories = categories.slice(0, 3);
+  const hiddenCategories = categories.slice(3);
+
   return (
     <SafeAreaView>
       <View style={{ flexDirection: "row", alignItems: "center", margin: 10 }}>
         <Searchbar
           placeholder="Search for a meal..."
+          placeholderTextColor="#fff"
           value={searchQuery}
           onChangeText={setSearchQuery}
-          style={{ flex: 1, borderRadius: 8 }}
+          style={{ flex: 1, borderRadius: 8, backgroundColor: "#ff8c00" }}
+          inputStyle={{ color: "#fff" }}
+          iconColor="#fff"
         />
         <TouchableOpacity
           onPress={recording ? stopRecording : startRecording}
@@ -166,24 +182,47 @@ export default function ExploreScreen() {
           <Ionicons
             name={recording ? "stop-circle" : "mic"}
             size={24}
-            color="#666"
+            color="#ff8c00"
           />
         </TouchableOpacity>
       </View>
 
       <View
-        style={{ flexDirection: "row", justifyContent: "center", margin: 10 }}
+        style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", margin: 10 }}
       >
-        {["All", "Western", "Healthy"].map((cat) => (
+        {visibleCategories.map((cat) => (
           <Button
             key={cat}
             mode={activeCategory === cat ? "contained" : "outlined"}
             onPress={() => filterByCategory(cat)}
-            style={{ marginRight: 5 }}
+            style={{ margin: 5 }}
+            buttonColor={activeCategory === cat ? "#ff8c00" : undefined}
+            textColor={activeCategory === cat ? "#fff" : "#ff8c00"}
           >
             {cat}
           </Button>
         ))}
+
+        {showMore && hiddenCategories.map((cat) => (
+          <Button
+            key={cat}
+            mode={activeCategory === cat ? "contained" : "outlined"}
+            onPress={() => filterByCategory(cat)}
+            style={{ margin: 5 }}
+            buttonColor={activeCategory === cat ? "#ff8c00" : undefined}
+            textColor={activeCategory === cat ? "#fff" : "#ff8c00"}
+          >
+            {cat}
+          </Button>
+        ))}
+
+        <Button
+          onPress={() => setShowMore(!showMore)}
+          style={{ margin: 5 }}
+          textColor="#ff8c00"
+        >
+          {showMore ? "Show Less" : "More"}
+        </Button>
       </View>
 
       <FlatList
