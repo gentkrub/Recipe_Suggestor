@@ -64,7 +64,7 @@ export default function ExploreScreen() {
     } as any);
 
     try {
-      const response = await fetch("https://9fd1-2001-44c8-46e2-14f8-d027-39f5-267e-dc39.ngrok-free.app/speech", {
+      const response = await fetch("http://localhost:3000/speech", {
         method: "POST",
         headers: {
           "Content-Type": "multipart/form-data",
@@ -143,7 +143,11 @@ export default function ExploreScreen() {
         );
       } else if (category === "Thai") {
         results = allMeals.filter((m) => m.strArea === "Thai");
-      } else if (["Seafood", "Dessert", "Beef", "Chicken", "Breakfast"].includes(category)) {
+      } else if (
+        ["Seafood", "Dessert", "Beef", "Chicken", "Breakfast"].includes(
+          category
+        )
+      ) {
         const response = await axios.get(
           `https://www.themealdb.com/api/json/v1/1/filter.php?c=${category}`
         );
@@ -159,7 +163,17 @@ export default function ExploreScreen() {
     }
   };
 
-  const categories = ["All", "Western", "Healthy", "Thai", "Seafood", "Dessert", "Beef", "Chicken", "Breakfast"];
+  const categories = [
+    "All",
+    "Western",
+    "Healthy",
+    "Thai",
+    "Seafood",
+    "Dessert",
+    "Beef",
+    "Chicken",
+    "Breakfast",
+  ];
   const visibleCategories = categories.slice(0, 3);
   const hiddenCategories = categories.slice(3);
 
@@ -188,7 +202,12 @@ export default function ExploreScreen() {
       </View>
 
       <View
-        style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", margin: 10 }}
+        style={{
+          flexDirection: "row",
+          flexWrap: "wrap",
+          justifyContent: "center",
+          margin: 10,
+        }}
       >
         {visibleCategories.map((cat) => (
           <Button
@@ -203,18 +222,19 @@ export default function ExploreScreen() {
           </Button>
         ))}
 
-        {showMore && hiddenCategories.map((cat) => (
-          <Button
-            key={cat}
-            mode={activeCategory === cat ? "contained" : "outlined"}
-            onPress={() => filterByCategory(cat)}
-            style={{ margin: 5 }}
-            buttonColor={activeCategory === cat ? "#ff8c00" : undefined}
-            textColor={activeCategory === cat ? "#fff" : "#ff8c00"}
-          >
-            {cat}
-          </Button>
-        ))}
+        {showMore &&
+          hiddenCategories.map((cat) => (
+            <Button
+              key={cat}
+              mode={activeCategory === cat ? "contained" : "outlined"}
+              onPress={() => filterByCategory(cat)}
+              style={{ margin: 5 }}
+              buttonColor={activeCategory === cat ? "#ff8c00" : undefined}
+              textColor={activeCategory === cat ? "#fff" : "#ff8c00"}
+            >
+              {cat}
+            </Button>
+          ))}
 
         <Button
           onPress={() => setShowMore(!showMore)}

@@ -47,27 +47,59 @@ export default function Profile() {
     <View style={styles.container}>
       {user && <Text style={styles.welcome}>Welcome, {user.firstname}!</Text>}
 
-      <TouchableOpacity onPress={() => setShowInfo(!showInfo)} style={styles.profileButton}>
-        <Text style={styles.profileButtonText}>{showInfo ? "Hide Profile Info" : "Show Profile Info"}</Text>
+      <TouchableOpacity
+        onPress={() => setShowInfo(!showInfo)}
+        style={styles.profileButton}
+      >
+        <Text style={styles.profileButtonText}>
+          {showInfo ? "Hide Profile Info" : "Show Profile Info"}
+        </Text>
       </TouchableOpacity>
 
       {showInfo && user && (
-  <View style={styles.profileCard}>
-    <Text style={styles.profileItem}><Text style={styles.label}>Name: </Text>{user.firstname} {user.lastname}</Text>
-    <Text style={styles.profileItem}><Text style={styles.label}>Age: </Text>{user.age}</Text>
-    <Text style={styles.profileItem}><Text style={styles.label}>Gender: </Text>{user.gender}</Text>
-    <Text style={styles.profileItem}><Text style={styles.label}>Height: </Text>{user.height} cm</Text>
-    <Text style={styles.profileItem}><Text style={styles.label}>Weight: </Text>{user.weight} kg</Text> {/* ✅ New Line */}
-    <Text style={styles.profileItem}><Text style={styles.label}>Email: </Text>{user.email}</Text>
-  </View>
-)}
+        <View style={styles.profileCard}>
+          <Text style={styles.profileItem}>
+            <Text style={styles.label}>Name: </Text>
+            <Text>
+              {user.firstname} {user.lastname}
+            </Text>
+          </Text>
+          <Text style={styles.profileItem}>
+            <Text style={styles.label}>Age: </Text>
+            <Text>{user.age}</Text>
+          </Text>
+          <Text style={styles.profileItem}>
+            <Text style={styles.label}>Gender: </Text>
+            <Text>{user.gender}</Text>
+          </Text>
+          <Text style={styles.profileItem}>
+            <Text style={styles.label}>Height: </Text>
+            <Text>{user.height} cm</Text>
+          </Text>
+          <Text style={styles.profileItem}>
+            <Text style={styles.label}>Weight: </Text>
+            <Text>{user.weight} kg</Text>
+          </Text>{" "}
+          {/* ✅ New Line */}
+          <Text style={styles.profileItem}>
+            <Text style={styles.label}>Email: </Text>
+            <Text>{user.email}</Text>
+          </Text>
+        </View>
+      )}
 
       <View style={styles.buttonRow}>
-        <TouchableOpacity onPress={() => Linking.openURL("https://forms.gle/hqQCzwz1PDMK7Qah8")} style={[styles.actionButton, { backgroundColor: '#0ea5e9' }]}>
+        <TouchableOpacity
+          onPress={() => Linking.openURL("https://forms.gle/hqQCzwz1PDMK7Qah8")}
+          style={[styles.actionButton, { backgroundColor: "#0ea5e9" }]}
+        >
           <Text style={styles.buttonText}>Give Feedback</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={logout} style={[styles.actionButton, { backgroundColor: '#e11d48' }]}>
+        <TouchableOpacity
+          onPress={logout}
+          style={[styles.actionButton, { backgroundColor: "#e11d48" }]}
+        >
           <Text style={styles.buttonText}>Logout</Text>
         </TouchableOpacity>
       </View>
@@ -82,7 +114,10 @@ export default function Profile() {
           renderItem={({ item }) => (
             <TouchableOpacity onPress={() => router.push(`/${item.idMeal}`)}>
               <View style={styles.card}>
-                <Image source={{ uri: item.strMealThumb }} style={styles.image} />
+                <Image
+                  source={{ uri: item.strMealThumb }}
+                  style={styles.image}
+                />
                 <Text style={styles.mealName}>{item.strMeal}</Text>
               </View>
             </TouchableOpacity>

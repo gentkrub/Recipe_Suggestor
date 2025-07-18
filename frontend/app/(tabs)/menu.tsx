@@ -72,16 +72,13 @@ export default function MenuScreen() {
     } as any);
 
     try {
-      const response = await fetch(
-        "https://9fd1-2001-44c8-46e2-14f8-d027-39f5-267e-dc39.ngrok-free.app/speech",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-          body: formData,
-        }
-      );
+      const response = await fetch("http://localhost:3000/speech", {
+        method: "POST",
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        body: formData,
+      });
 
       const data = await response.json();
       console.log("📝 Transcription:", data.transcript);
@@ -184,7 +181,9 @@ export default function MenuScreen() {
       } else if (category === "Thai") {
         results = allMeals.filter((m) => m.strArea === "Thai");
       } else if (
-        ["Seafood", "Dessert", "Beef", "Chicken", "Breakfast"].includes(category)
+        ["Seafood", "Dessert", "Beef", "Chicken", "Breakfast"].includes(
+          category
+        )
       ) {
         const response = await axios.get(
           `https://www.themealdb.com/api/json/v1/1/filter.php?c=${category}`
@@ -311,10 +310,7 @@ export default function MenuScreen() {
                   </Text>
                 )}
               </View>
-              <Image
-                source={{ uri: item.strMealThumb }}
-                style={styles.image}
-              />
+              <Image source={{ uri: item.strMealThumb }} style={styles.image} />
             </View>
           </TouchableOpacity>
         )}

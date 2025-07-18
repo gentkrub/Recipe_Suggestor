@@ -38,7 +38,7 @@ export default function IngredientsScreen() {
     const fetchUserIngredients = async () => {
       try {
         const res = await fetch(
-          `https://9fd1-2001-44c8-46e2-14f8-d027-39f5-267e-dc39.ngrok-free.app/api/ingredients/latest?user_id=${user?.id}`
+          `http://localhost:3000/api/ingredients/latest?user_id=${user?.id}`
         );
         const data = await res.json();
 
@@ -58,7 +58,10 @@ export default function IngredientsScreen() {
   }, [user]);
 
   const handleInputChange = (text) => {
-    const cleanedText = text.trim().replace(/[.,!?]+$/, "").toLowerCase();
+    const cleanedText = text
+      .trim()
+      .replace(/[.,!?]+$/, "")
+      .toLowerCase();
     setInputText(text);
 
     if (cleanedText.length > 0) {
@@ -80,7 +83,9 @@ export default function IngredientsScreen() {
     );
 
     if (!found) {
-      alert("❌ This ingredient is not recognized. Please select from the suggestion list.");
+      alert(
+        "❌ This ingredient is not recognized. Please select from the suggestion list."
+      );
       return;
     }
 
@@ -142,14 +147,11 @@ export default function IngredientsScreen() {
     });
 
     try {
-      const response = await fetch(
-        "https://9fd1-2001-44c8-46e2-14f8-d027-39f5-267e-dc39.ngrok-free.app/speech",
-        {
-          method: "POST",
-          headers: { "Content-Type": "multipart/form-data" },
-          body: formData,
-        }
-      );
+      const response = await fetch("http://localhost:3000/speech", {
+        method: "POST",
+        headers: { "Content-Type": "multipart/form-data" },
+        body: formData,
+      });
 
       const data = await response.json();
       if (data.transcript)
@@ -163,21 +165,21 @@ export default function IngredientsScreen() {
     const now = new Date().toISOString().slice(0, 19).replace("T", " ");
 
     try {
-      await AsyncStorage.setItem("latest_ingredients", JSON.stringify(ingredients));
-
-      const res = await fetch(
-        "https://9fd1-2001-44c8-46e2-14f8-d027-39f5-267e-dc39.ngrok-free.app/api/ingredient",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            submitted_at: now,
-            user_id: user?.id,
-            ingredients: ingredients,
-            timestamp: Date.now(),
-          }),
-        }
+      await AsyncStorage.setItem(
+        "latest_ingredients",
+        JSON.stringify(ingredients)
       );
+
+      const res = await fetch("http://localhost:3000/api/ingredient", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          submitted_at: now,
+          user_id: user?.id,
+          ingredients: ingredients,
+          timestamp: Date.now(),
+        }),
+      });
 
       await res.json();
       alert("Ingredients saved!");
@@ -210,7 +212,11 @@ export default function IngredientsScreen() {
       <View style={styles.container}>
         <View style={styles.inputRow}>
           <TouchableOpacity onPress={() => setShowAll(!showAll)}>
-            <Ionicons name={showAll ? "close" : "search"} size={24} color="#999" />
+            <Ionicons
+              name={showAll ? "close" : "search"}
+              size={24}
+              color="#999"
+            />
           </TouchableOpacity>
           <TextInput
             style={styles.input}
@@ -219,8 +225,14 @@ export default function IngredientsScreen() {
             onChangeText={handleInputChange}
             onSubmitEditing={addIngredient}
           />
-          <TouchableOpacity onPress={recording ? stopRecording : startRecording}>
-            <Ionicons name={recording ? "stop-circle" : "mic"} size={24} color="#999" />
+          <TouchableOpacity
+            onPress={recording ? stopRecording : startRecording}
+          >
+            <Ionicons
+              name={recording ? "stop-circle" : "mic"}
+              size={24}
+              color="#999"
+            />
           </TouchableOpacity>
         </View>
 
@@ -250,7 +262,9 @@ export default function IngredientsScreen() {
                 >
                   <View style={styles.suggestionRow}>
                     <Image
-                      source={{ uri: `https://www.themealdb.com/images/ingredients/${item.strIngredient}.png` }}
+                      source={{
+                        uri: `https://www.themealdb.com/images/ingredients/${item.strIngredient}.png`,
+                      }}
                       style={styles.suggestionImage}
                     />
                     <Text>{item.strIngredient}</Text>
@@ -259,7 +273,10 @@ export default function IngredientsScreen() {
               )}
               keyboardShouldPersistTaps="handled"
             />
-            <TouchableOpacity onPress={() => setShowAll(false)} style={styles.exitButton}>
+            <TouchableOpacity
+              onPress={() => setShowAll(false)}
+              style={styles.exitButton}
+            >
               <Text style={styles.exitText}>Exit</Text>
             </TouchableOpacity>
           </View>
@@ -293,7 +310,9 @@ export default function IngredientsScreen() {
                 >
                   <View style={styles.suggestionRow}>
                     <Image
-                      source={{ uri: `https://www.themealdb.com/images/ingredients/${item.strIngredient}.png` }}
+                      source={{
+                        uri: `https://www.themealdb.com/images/ingredients/${item.strIngredient}.png`,
+                      }}
                       style={styles.suggestionImage}
                     />
                     <Text>{item.strIngredient}</Text>
@@ -311,7 +330,9 @@ export default function IngredientsScreen() {
           data={ingredients}
           keyExtractor={(item) => item.name}
           renderItem={renderItem}
-          ListEmptyComponent={<Text style={styles.emptyText}>No ingredients yet.</Text>}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No ingredients yet.</Text>
+          }
           keyboardShouldPersistTaps="handled"
         />
 
@@ -324,23 +345,66 @@ export default function IngredientsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fed7aa", paddingHorizontal: 20, paddingTop: 30, paddingBottom: 20 },
-  inputRow: { flexDirection: "row", backgroundColor: "#fff", borderRadius: 25, paddingHorizontal: 15, paddingVertical: 15, alignItems: "center", marginBottom: 10 },
+  container: {
+    flex: 1,
+    backgroundColor: "#fed7aa",
+    paddingHorizontal: 20,
+    paddingTop: 30,
+    paddingBottom: 20,
+  },
+  inputRow: {
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    borderRadius: 25,
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    alignItems: "center",
+    marginBottom: 10,
+  },
   input: { flex: 1, marginHorizontal: 10, fontSize: 18, paddingVertical: 10 },
   suggestionWrapper: { maxHeight: 200, marginBottom: 10 },
-  suggestionItem: { backgroundColor: "#fff", padding: 10, borderBottomWidth: 1, borderBottomColor: "#ccc" },
+  suggestionItem: {
+    backgroundColor: "#fff",
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#ccc",
+  },
   suggestionRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   suggestionImage: { width: 30, height: 30, borderRadius: 5 },
   heading: { fontSize: 20, fontWeight: "bold", marginVertical: 10 },
-  ingredientItem: { backgroundColor: "#fff", borderRadius: 12, padding: 15, marginBottom: 10, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  ingredientItem: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   ingredientRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   ingredientImage: { width: 40, height: 40, borderRadius: 8 },
   ingredientText: { fontSize: 16, fontWeight: "500" },
   qtyBtn: { paddingHorizontal: 10 },
-  nextButton: { position: "absolute", bottom: 10, left: 20, right: 20, backgroundColor: "#38bdf8", padding: 15, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  nextButton: {
+    position: "absolute",
+    bottom: 10,
+    left: 20,
+    right: 20,
+    backgroundColor: "#38bdf8",
+    padding: 15,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   nextText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
   emptyText: { textAlign: "center", color: "#999", marginTop: 30 },
   safeArea: { flex: 1, backgroundColor: "#fed7aa" },
-  exitButton: { backgroundColor: "red", padding: 10, borderRadius: 8, alignItems: "center", marginTop: 10 },
+  exitButton: {
+    backgroundColor: "red",
+    padding: 10,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 10,
+  },
   exitText: { color: "#fff", fontWeight: "bold" },
 });
